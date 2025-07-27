@@ -1,0 +1,36 @@
+// Query: Unusual Data Transfer Detection
+// Description: Identifies abnormal outbound data transfers that may indicate data exfiltration
+// Author: Security Team
+// Created: 2025-01-24
+// Last Modified: 2025-01-24
+// Version: 1.0
+// Severity: High
+// MITRE ATT&CK: T1020 - Data Transfer Size Anomaly
+// MITRE Tactics: Exfiltration
+// Data Sources: AzureDiagnostics (NetworkSecurityGroup)
+// False Positive Rate: Medium
+// Tags: detection, network, exfiltration, data-transfer
+
+// Parameters
+let lookbackTime = 24h;
+let dataThreshold = 100000000; // 100MB in bytes
+let timeWindow = 1h;
+
+AzureDiagnostics
+| where TimeGenerated > ago(lookbackTime)
+| where Category == "NetworkSecurityGroupFlowEvent"
+| where Direction == "Outbound" and DestinationPort == "443"  // SSL/TLS traffic
+| summarize 
+    TotalDataTransferred = sum(todouble(TrafficBytes)),
+    UniqueDestinations = dcount(DestinationIP),
+    FlowCount = count(),
+    Destinations = make_set(DestinationIP)
+    by SourceIP, bin(TimeGenerated, timeWindow)
+| where TotalDataTransferred > dataThreshold
+| extend 
+    DataTransferredMB = round(TotalDataTransferred / 1024 / 1024, 2),
+    RiskScore = case(
+        TotalDataTransferred > 1000000000, "Critical", // > 1GB
+        TotalDataTransferred > 500000000, "High",      // > 500MB
+        "Medium")
+| order by TotalDataTransferred desc

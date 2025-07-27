@@ -1,0 +1,60 @@
+// Query: Failed Login Attempts Detection
+// Description: Detects multiple failed login attempts that may indicate brute force attacks
+// Author: Security Team
+// Created: 2025-01-24
+// Last Modified: 2025-01-24
+// Version: 1.0
+// Severity: Medium
+// MITRE ATT&CK: T1110 - Brute Force
+// Data Sources: SigninLogs, SecurityEvent
+// False Positive Rate: Low
+// Tags: detection, authentication, brute-force
+
+// Parameters
+let lookbackTime = 24h;
+let failureThreshold = 5;
+let timeWindow = 10m;
+
+// Azure AD Sign-in failures
+let aadFailures = SigninLogs
+| where TimeGenerated > ago(lookbackTime)
+| where ResultType != "0" // Non-successful sign-ins
+| where ResultType in ("50126", "50053", "50055", "50057", "50074", "50076")
+| extend 
+    Account = UserPrincipalName,
+    SourceIP = IPAddress,
+    Application = AppDisplayName,
+    FailureReason = ResultDescription
+| project TimeGenerated, Account, SourceIP, Application, FailureReason, ResultType;
+
+// Windows Security Event failures  
+let windowsFailures = SecurityEvent
+| where TimeGenerated > ago(lookbackTime)
+| where EventID in (4625, 4771, 4776) // Failed logons
+| extend 
+    Account = TargetUserName,
+    SourceIP = IpAddress,
+    Application = "Windows",
+    FailureReason = Activity
+| project TimeGenerated, Account, SourceIP, Application, FailureReason;
+
+// Combine and analyze
+union aadFailures, windowsFailures
+| where isnotempty(Account)
+| summarize 
+    FailedAttempts = count(),
+    UniqueIPs = dcount(SourceIP),
+    Applications = make_set(Application),
+    FailureReasons = make_set(FailureReason),
+    FirstFailure = min(TimeGenerated),
+    LastFailure = max(TimeGenerated),
+    SourceIPs = make_set(SourceIP)
+    by Account, bin(TimeGenerated, timeWindow)
+| where FailedAttempts >= failureThreshold
+| extend 
+    Duration = LastFailure - FirstFailure,
+    RiskScore = case(
+        FailedAttempts > 20 and UniqueIPs > 5, "High",
+        FailedAttempts > 10 or UniqueIPs > 3, "Medium",
+        "Low")
+| order by FailedAttempts desc, UniqueIPs desc

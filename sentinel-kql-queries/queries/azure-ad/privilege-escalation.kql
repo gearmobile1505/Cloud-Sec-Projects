@@ -1,0 +1,42 @@
+// Query: Azure AD Privilege Escalation Detection
+// Description: Monitors for suspicious role assignments, especially to privileged roles
+// Author: Security Team
+// Created: 2025-01-24
+// Last Modified: 2025-01-24
+// Version: 1.0
+// Severity: High
+// MITRE ATT&CK: T1098 - Account Manipulation
+// MITRE Tactics: Privilege Escalation
+// Data Sources: AuditLogs
+// False Positive Rate: Low
+// Tags: detection, azure-ad, privilege-escalation, role-assignment
+
+// Parameters
+let lookbackTime = 24h;
+let privilegedRoles = dynamic([
+    "Global Administrator",
+    "Privileged Role Administrator", 
+    "Security Administrator",
+    "User Administrator",
+    "Exchange Administrator"
+]);
+
+AuditLogs
+| where TimeGenerated > ago(lookbackTime)
+| where OperationName == "Add member to role"
+| extend 
+    InitiatorInfo = tostring(InitiatedBy.user.userPrincipalName),
+    InitiatorAppId = tostring(InitiatedBy.app.appId),
+    TargetUser = tostring(TargetResources[0].userPrincipalName),
+    RoleName = tostring(TargetResources[0].displayName)
+| where RoleName in (privilegedRoles)
+| summarize 
+    RoleAssignments = count(),
+    AssignedRoles = make_set(RoleName),
+    TargetUsers = make_set(TargetUser)
+    by InitiatorInfo, bin(TimeGenerated, 1h)
+| extend RiskLevel = case(
+    RoleAssignments > 5, "High",
+    RoleAssignments > 2, "Medium",
+    "Low")
+| project InitiatorInfo, RoleAssignments, AssignedRoles, TargetUsers, TimeGenerated, RiskLevel

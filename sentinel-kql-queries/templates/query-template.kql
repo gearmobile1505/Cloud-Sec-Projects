@@ -1,0 +1,38 @@
+// Query: [Replace with descriptive query name]
+// Description: [Replace with what this query detects or monitors]
+// Author: [Your name/team]
+// Created: [YYYY-MM-DD]
+// Last Modified: [YYYY-MM-DD]
+// Version: 1.0
+// Severity: [High/Medium/Low]
+// MITRE ATT&CK: [T1234 - Technique Name if applicable]
+// Data Sources: [List required Sentinel tables/logs]
+// False Positive Rate: [High/Medium/Low]
+// Tags: [detection, hunting, compliance, authentication, etc.]
+// Prerequisites: [Any required data connectors or configuration]
+
+// Parameters (customize as needed)
+let lookbackTime = 24h;
+let threshold = 5;
+
+// Main query logic
+YourTable
+| where TimeGenerated > ago(lookbackTime)
+| where [your conditions here]
+// Add meaningful comments explaining complex logic
+| extend [computed columns if needed]
+| summarize 
+    Count = count(),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by [grouping columns]
+| where Count >= threshold
+| order by Count desc
+| limit 100
+
+// Optional: Add sample output or expected results as comments
+/*
+Sample Output:
+Account | Count | FirstSeen | LastSeen
+user@domain.com | 10 | 2025-01-01T10:00:00Z | 2025-01-01T11:00:00Z
+*/

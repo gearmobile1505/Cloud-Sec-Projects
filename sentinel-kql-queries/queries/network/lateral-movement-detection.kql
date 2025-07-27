@@ -1,0 +1,46 @@
+// Query: Lateral Movement Detection
+// Description: Identifies potential lateral movement through network and remote interactive logons
+// Author: Security Team
+// Created: 2025-01-24
+// Last Modified: 2025-01-24
+// Version: 1.0
+// Severity: Medium
+// MITRE ATT&CK: T1021 - Remote Services
+// MITRE Tactics: Lateral Movement
+// Data Sources: SecurityEvent
+// False Positive Rate: Medium
+// Tags: detection, network, lateral-movement, logon-analysis
+
+// Parameters
+let lookbackTime = 24h;
+let logonThreshold = 3;
+let timeWindow = 1h;
+
+SecurityEvent
+| where TimeGenerated > ago(lookbackTime)
+| where EventID == 4624  // Successful logon
+| where LogonType in (3, 10)  // Network (3) or RemoteInteractive (10) logon
+| extend 
+    SourceIP = tostring(IpAddress),
+    TargetAccount = tostring(TargetUserName),
+    TargetComputer = tostring(Computer),
+    LogonTypeName = case(
+        LogonType == 3, "Network",
+        LogonType == 10, "RemoteInteractive",
+        "Other")
+| summarize 
+    LogonAttempts = count(),
+    UniqueComputers = dcount(TargetComputer),
+    TargetComputers = make_set(TargetComputer),
+    LogonTypes = make_set(LogonTypeName),
+    FirstLogon = min(TimeGenerated),
+    LastLogon = max(TimeGenerated)
+    by TargetAccount, SourceIP, bin(TimeGenerated, timeWindow)
+| where LogonAttempts > logonThreshold or UniqueComputers > 2
+| extend 
+    LogonSpread = LastLogon - FirstLogon,
+    RiskScore = case(
+        UniqueComputers > 5, "High",
+        UniqueComputers > 3 or LogonAttempts > 10, "Medium", 
+        "Low")
+| order by UniqueComputers desc, LogonAttempts desc

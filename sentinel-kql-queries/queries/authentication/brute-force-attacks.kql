@@ -1,0 +1,32 @@
+// Query: Brute Force Password Attack Detection
+// Description: Identifies potential brute force attacks based on multiple failed login attempts
+// Author: Security Team
+// Created: 2025-01-24
+// Last Modified: 2025-01-24
+// Version: 1.0
+// Severity: High
+// MITRE ATT&CK: T1110 - Brute Force
+// MITRE Tactics: Credential Access
+// Data Sources: SigninLogs
+// False Positive Rate: Low
+// Tags: detection, authentication, credential-access, brute-force
+
+// Parameters
+let lookbackTime = 24h;
+let attemptThreshold = 10;
+
+SigninLogs
+| where TimeGenerated > ago(lookbackTime)
+| where ResultType == "50126"  // Invalid username or password
+| summarize 
+    AttemptCount = count(),
+    UniqueUsers = dcount(UserPrincipalName),
+    FirstAttempt = min(TimeGenerated),
+    LastAttempt = max(TimeGenerated),
+    TargetUsers = make_set(UserPrincipalName)
+    by IPAddress, bin(TimeGenerated, 1h)
+| where AttemptCount > attemptThreshold
+| extend 
+    Duration = LastAttempt - FirstAttempt,
+    AttackRate = AttemptCount / (datetime_diff('minute', LastAttempt, FirstAttempt) + 1)
+| order by AttemptCount desc

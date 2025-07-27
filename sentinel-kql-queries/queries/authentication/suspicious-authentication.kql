@@ -1,0 +1,33 @@
+// Query: Suspicious Authentication Detection
+// Description: Detects failed sign-in attempts that may indicate password spray or brute force attacks
+// Author: Security Team
+// Created: 2025-01-24
+// Last Modified: 2025-01-24
+// Version: 1.0
+// Severity: Medium
+// MITRE ATT&CK: T1078 - Valid Accounts
+// MITRE Tactics: Initial Access, Persistence
+// Data Sources: SigninLogs
+// False Positive Rate: Low
+// Tags: detection, authentication, initial-access, persistence
+
+// Parameters
+let suspiciousIPs = dynamic(["192.168.1.100", "10.0.0.50"]); // Update with actual suspicious IPs
+let failureThreshold = 5;
+let timeWindow = 1h;
+
+SigninLogs
+| where ResultType != "0"  // Failed sign-ins
+| where AuthenticationDetails has "PasswordSpray" or IPAddress in (suspiciousIPs)
+| summarize 
+    FailedAttempts = count(),
+    UniqueUsers = dcount(UserPrincipalName),
+    Applications = make_set(AppDisplayName),
+    UserAgents = make_set(UserAgent)
+    by UserPrincipalName, IPAddress, bin(TimeGenerated, timeWindow)
+| where FailedAttempts > failureThreshold
+| extend RiskLevel = case(
+    FailedAttempts > 20, "High",
+    FailedAttempts > 10, "Medium", 
+    "Low")
+| order by FailedAttempts desc
