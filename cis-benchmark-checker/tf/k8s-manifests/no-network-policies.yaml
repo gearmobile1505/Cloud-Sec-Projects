@@ -19,7 +19,7 @@ spec:
     ports:
     - containerPort: 80
     securityContext:
-      runAsUser: 0  # Running as root
+      runAsUser: 0 # Running as root
 ---
 # Another namespace without network policies
 apiVersion: v1
@@ -49,4 +49,4 @@ spec:
         ports:
         - containerPort: 80
         securityContext:
-          runAsUser: 0  # Running as root
+          runAsUser: 0 # Running as root

@@ -5,13 +5,13 @@
 aws:
   # Default AWS profile to use (can be overridden via CLI)
   default_profile: null
-  
+
   # Default region for checks (can be overridden via CLI)
   default_region: "us-east-1"
-  
+
   # Cross-account role for multi-account checks
   assume_role_arn: null
-  
+
   # Session duration for cross-account access (in seconds)
   session_duration: 3600
 
@@ -19,20 +19,20 @@ aws:
 kubernetes:
   # Default kubeconfig path (null means use default)
   kubeconfig_path: null
-  
+
   # Default context to use (null means use current context)
   context: null
-  
+
   # Namespaces to include in checks (empty means all namespaces)
   include_namespaces: []
-  
+
   # Namespaces to exclude from checks
-  exclude_namespaces: 
-    - "kube-system"
-    - "kube-public" 
-    - "kube-node-lease"
-    - "local-path-storage"
-  
+  exclude_namespaces:
+  - "kube-system"
+  - "kube-public"
+  - "kube-node-lease"
+  - "local-path-storage"
+
   # Skip checks that require cluster-admin privileges
   skip_privileged_checks: false
 
@@ -40,28 +40,28 @@ kubernetes:
 controls:
   # Controls to run by default (empty means all implemented controls)
   default_controls: []
-  
+
   # Controls to skip (useful for environment-specific exclusions)
   skip_controls: []
-  
+
   # Custom severity mappings
   severity_mapping:
-    "1.12": "CRITICAL"  # Root access keys
-    "1.13": "CRITICAL"  # Root MFA
-    "3.1": "HIGH"       # CloudTrail enabled
-    "5.2": "HIGH"       # Security groups
+    "1.12": "CRITICAL" # Root access keys
+    "1.13": "CRITICAL" # Root MFA
+    "3.1": "HIGH" # CloudTrail enabled
+    "5.2": "HIGH" # Security groups
 
 # Reporting Configuration
 reporting:
   # Default output format
-  format: "json"  # json, text, html
-  
+  format: "json" # json, text, html
+
   # Include resource details in reports
   include_resource_details: true
-  
+
   # Include remediation guidance
   include_remediation: true
-  
+
   # Report retention (days)
   retention_days: 90
 
@@ -76,7 +76,7 @@ integrations:
     company_id: "YourCompany"
     # Product ID for findings
     product_id: "CIS-Benchmark-Checker"
-  
+
   # AWS Config integration
   config:
     enabled: false
@@ -84,22 +84,22 @@ integrations:
     rule_prefix: "cis-"
     # Create Config rules automatically
     auto_create_rules: false
-  
+
   # S3 integration for report storage
   s3:
     enabled: false
     bucket: null
     prefix: "cis-compliance-reports"
-    encryption: "AES256"  # AES256, aws:kms
-    kms_key_id: null  # Only used if encryption is aws:kms
-  
+    encryption: "AES256" # AES256, aws:kms
+    kms_key_id: null # Only used if encryption is aws:kms
+
   # SNS integration for notifications
   sns:
     enabled: false
     topic_arn: null
     # Send notifications only for non-compliant findings
     only_non_compliant: true
-  
+
   # Slack integration (webhook)
   slack:
     enabled: false
@@ -111,25 +111,25 @@ integrations:
 scheduling:
   # Enable automatic scheduling
   enabled: false
-  
+
   # Cron expression for schedule (daily at 2 AM UTC)
   cron_expression: "0 2 * * *"
-  
+
   # Maximum runtime (minutes)
   max_runtime: 60
-  
+
   # Retry configuration
   retry_attempts: 3
-  retry_delay: 300  # seconds
+  retry_delay: 300 # seconds
 
 # Thresholds and Alerting
 alerting:
   # Compliance score threshold for alerts (percentage)
   compliance_threshold: 95
-  
+
   # Critical control failures that trigger immediate alerts
-  critical_controls: ["1.12", "1.13"]
-  
+  critical_controls: [ "1.12", "1.13" ]
+
   # Alert channels
   channels:
     email: []
@@ -146,31 +146,31 @@ custom_controls:
 logging:
   # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   level: "INFO"
-  
+
   # Log to file
   file_logging:
     enabled: false
     file_path: "/var/log/cis-checker.log"
     max_file_size: "10MB"
     backup_count: 5
-  
+
   # Log to CloudWatch Logs
   cloudwatch_logging:
     enabled: false
     log_group: "/aws/cis-benchmark-checker"
-    log_stream: null  # Auto-generated if null
+    log_stream: null # Auto-generated if null
 
 # Performance Configuration
 performance:
   # Maximum concurrent API calls
   max_concurrent_calls: 10
-  
+
   # API rate limiting (calls per second)
   api_rate_limit: 10
-  
+
   # Timeout for API calls (seconds)
   api_timeout: 30
-  
+
   # Pagination size for list operations
   pagination_size: 100
 
@@ -178,18 +178,18 @@ performance:
 environments:
   development:
     controls:
-      skip_controls: ["1.1", "1.2"]  # Skip manual controls in dev
+      skip_controls: [ "1.1", "1.2" ] # Skip manual controls in dev
     reporting:
       retention_days: 30
-  
+
   staging:
     alerting:
       compliance_threshold: 90
-  
+
   production:
     alerting:
       compliance_threshold: 98
-      critical_controls: ["1.12", "1.13", "3.1", "5.2"]
+      critical_controls: [ "1.12", "1.13", "3.1", "5.2" ]
     scheduling:
       enabled: true
-      cron_expression: "0 1 * * *"  # 1 AM UTC
+      cron_expression: "0 1 * * *" # 1 AM UTC

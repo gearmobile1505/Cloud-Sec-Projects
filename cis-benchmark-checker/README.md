@@ -1,24 +1,5 @@
 # CIS Benchmark Checker for AWS & Kubernetes
 
-✅ **SUCCESSFULLY TESTED & DEPLOYED** - Automated compliance checking against CIS AWS Foundations Benchmark v1.5.0 and CIS Kubernetes Benchmark v1.8.0. This tool provides comprehensive security posture assessment using AWS native services and Kubernetes APIs.
-
-## 🎯 Verified Features
-
-✅ **AWS CIS Compliance**: 27+ controls covering IAM, logging, networking  
-✅ **Kubernetes CIS Compliance**: 15+ controls covering RBAC, network policies, pods  
-✅ **EKS Integration**: Fully tested with EKS v1.31 cluster  
-✅ **Real Issue Detection**: Identifies actual security misconfigurations  
-✅ **JSON Reporting**: Structured compliance reports with remediation guidance  
-
-## 🏆 Test Results
-
-**Successfully deployed and tested with:**
-- EKS Cluster v1.31 with 2 worker nodes
-- Kubernetes compliance: 9.68% (detected 28/31 issues)
-- AWS compliance: Detected old unused IAM access keys
-- Security groups with IP-restricted access
-- Complete VPC with NAT Gateway for internet access
-
 ## ⚠️ IMPORTANT: Update IP Addresses Before Deployment
 
 **BEFORE deploying infrastructure, update `tf/kubernetes.tf`:**
@@ -186,11 +167,11 @@ python3 unified_cis_checker.py k8s check --controls "5.1.1,5.2.2"
 
 ## 🗂️ Getting Started
 
-**New users:** Start with the [📋 Complete Walkthrough](docs/WALKTHROUGH.md) for step-by-step instructions.
+**New users:** Start with the [Complete Walkthrough](docs/WALKTHROUGH.md) for step-by-step instructions.
 
-**Experienced users:** Check the [📘 Usage Guide](docs/USAGE.md) for comprehensive documentation.
+**Experienced users:** Check the [Usage Guide](docs/USAGE.md) for comprehensive documentation.
 
-**Want to test?** Deploy the [🧪 Test Infrastructure](tf/README.md) to validate the tool.
+**Want to test?** Deploy the [Test Infrastructure](tf/README.md) to validate the tool.
 
 ## � Documentation
 

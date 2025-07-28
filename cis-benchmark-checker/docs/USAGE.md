@@ -1,6 +1,6 @@
 # CIS Benchmark Checker - Usage Guide
 
-Comprehensive documentation for using the CIS Benchmark Checker to assess and monitor AWS security compliance.
+Documentation for using the CIS Benchmark Checker to assess and monitor AWS security compliance.
 
 > **🚀 FIRST TIME SETUP? Start with the [Complete Walkthrough](WALKTHROUGH.md) for end-to-end setup instructions!**
 
@@ -221,36 +221,6 @@ crontab -e
 0 3 1 * * /path/to/cis-benchmark-checker/run_cis_checks.sh --profile production --sns-topic arn:aws:sns:us-east-1:123456789:monthly-reports
 ```
 
-### Systemd Timer (Linux)
-```bash
-# Create service file: /etc/systemd/system/cis-compliance.service
-[Unit]
-Description=CIS Compliance Check
-After=network.target
-
-[Service]
-Type=oneshot
-User=compliance
-ExecStart=/opt/cis-benchmark-checker/run_cis_checks.sh --profile production --s3-bucket compliance-reports
-WorkingDirectory=/opt/cis-benchmark-checker
-
-# Create timer file: /etc/systemd/system/cis-compliance.timer
-[Unit]
-Description=Run CIS compliance check daily
-Requires=cis-compliance.service
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-
-# Enable and start
-sudo systemctl enable cis-compliance.timer
-sudo systemctl start cis-compliance.timer
-```
-
 ### AWS Lambda Deployment
 ```bash
 # Package the function
@@ -457,36 +427,6 @@ aws ec2 describe-security-groups \
   --filters "Name=ip-permission.cidr,Values=0.0.0.0/0" \
   --query 'SecurityGroups[?length(IpPermissions[?IpRanges[?CidrIp==`0.0.0.0/0`] && (FromPort==`22` || FromPort==`3389`)]) > `0`]'
 ```
-
-## Best Practices
-
-### Security Best Practices
-1. **Use IAM Roles**: Prefer IAM roles over access keys when possible
-2. **Least Privilege**: Grant only necessary permissions for compliance checking
-3. **Regular Rotation**: Rotate access keys regularly if using them
-4. **Secure Storage**: Store reports securely in S3 with encryption
-5. **Monitor Access**: Enable CloudTrail for compliance checking activities
-
-### Operational Best Practices
-1. **Regular Scheduling**: Run checks daily or weekly depending on environment
-2. **Baseline Establishment**: Establish compliance baselines for comparison
-3. **Exception Handling**: Document and track approved exceptions
-4. **Remediation Tracking**: Track remediation efforts and timelines
-5. **Continuous Monitoring**: Integrate with existing monitoring systems
-
-### Performance Best Practices
-1. **Regional Optimization**: Run checks in the same region as resources when possible
-2. **Parallel Execution**: Use multiple instances for large multi-account environments
-3. **Rate Limiting**: Respect AWS API rate limits
-4. **Caching**: Cache results when appropriate for repeated checks
-5. **Resource Filtering**: Filter checks to relevant resources only
-
-### Reporting Best Practices
-1. **Standardized Formats**: Use consistent report formats across environments
-2. **Historical Tracking**: Maintain historical compliance data
-3. **Executive Summaries**: Provide high-level summaries for management
-4. **Actionable Results**: Include specific remediation steps
-5. **Integration**: Integrate with existing security and compliance tools
 
 ### Example Compliance Workflow
 ```bash
