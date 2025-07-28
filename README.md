@@ -1,6 +1,6 @@
-# AWS Security Projects 🛡️
+# Cloud Security Projects 🛡️
 
-A curated collection of security tools, scripts, and automation for AWS environments.
+A collection of security tools, scripts, and automation for AWS, and Azure environments.
 
 ## 🔍 Project Index
 
