@@ -1,0 +1,171 @@
+{
+  "Timestamp": "2025-07-27T18:33:06.667043",
+  "Region": "us-east-1",
+  "TotalSecurityGroups": 6,
+  "SecurityGroups": [
+    {
+      "GroupId": "sg-0480679d478c26fc9",
+      "GroupName": "sec-test-low-risk-20250727222220085600000006",
+      "Description": "LOW RISK: Only web traffic and restricted SSH",
+      "VpcId": "vpc-0c4f84d7379b8f939",
+      "RiskLevel": "Low",
+      "OpenRules": [
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 80,
+          "ToPort": 80,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "HTTP from anywhere"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 443,
+          "ToPort": 443,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "HTTPS from anywhere"
+        }
+      ]
+    },
+    {
+      "GroupId": "sg-0cf67dd46b0bfbb77",
+      "GroupName": "sec-test-secure-20250727222220077600000005",
+      "Description": "SECURE: Properly configured security group",
+      "VpcId": "vpc-0c4f84d7379b8f939",
+      "RiskLevel": "Low",
+      "OpenRules": [
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 80,
+          "ToPort": 80,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "HTTP from anywhere"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 443,
+          "ToPort": 443,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "HTTPS from anywhere"
+        }
+      ]
+    },
+    {
+      "GroupId": "sg-0e1f53aef4dedc9aa",
+      "GroupName": "launch-wizard-1",
+      "Description": "launch-wizard-1 created 2024-12-28T16:04:42.580Z",
+      "VpcId": "vpc-09cd06b6612f5f9ce",
+      "RiskLevel": "High",
+      "OpenRules": [
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 22,
+          "ToPort": 22,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "No description"
+        }
+      ]
+    },
+    {
+      "GroupId": "sg-03602e3e87c2d0a1c",
+      "GroupName": "sec-test-medium-risk-20250727222220100000000007",
+      "Description": "MEDIUM RISK: Database ports open to internet - FOR TESTING ONLY",
+      "VpcId": "vpc-0c4f84d7379b8f939",
+      "RiskLevel": "Medium",
+      "OpenRules": [
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 1433,
+          "ToPort": 1433,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "SQL Server from anywhere - MEDIUM RISK"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 5432,
+          "ToPort": 5432,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "PostgreSQL from anywhere - MEDIUM RISK"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 6379,
+          "ToPort": 6379,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "Redis from anywhere - MEDIUM RISK"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 5601,
+          "ToPort": 5601,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "Kibana from anywhere - MEDIUM RISK"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 27017,
+          "ToPort": 27017,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "MongoDB from anywhere - MEDIUM RISK"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 3306,
+          "ToPort": 3306,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "MySQL from anywhere - MEDIUM RISK"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 9200,
+          "ToPort": 9200,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "Elasticsearch from anywhere - MEDIUM RISK"
+        }
+      ]
+    },
+    {
+      "GroupId": "sg-0722d172291aa8745",
+      "GroupName": "sec-test-high-risk-20250727222220073300000004",
+      "Description": "HIGH RISK: SSH and RDP open to internet - FOR TESTING ONLY",
+      "VpcId": "vpc-0c4f84d7379b8f939",
+      "RiskLevel": "High",
+      "OpenRules": [
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 22,
+          "ToPort": 22,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "SSH from anywhere - HIGH RISK"
+        },
+        {
+          "IpProtocol": "tcp",
+          "FromPort": 3389,
+          "ToPort": 3389,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "RDP from anywhere - HIGH RISK"
+        }
+      ]
+    },
+    {
+      "GroupId": "sg-0eeff20c57fd32f91",
+      "GroupName": "sec-test-extreme-risk-20250727222220496900000008",
+      "Description": "EXTREME RISK: All protocols open to internet - FOR TESTING ONLY",
+      "VpcId": "vpc-0c4f84d7379b8f939",
+      "RiskLevel": "High",
+      "OpenRules": [
+        {
+          "IpProtocol": "-1",
+          "FromPort": null,
+          "ToPort": null,
+          "CidrIp": "0.0.0.0/0",
+          "Description": "All protocols from anywhere - EXTREME RISK"
+        }
+      ]
+    }
+  ],
+  "Summary": {
+    "HighRisk": 3,
+    "MediumRisk": 1,
+    "LowRisk": 2
+  }
+}

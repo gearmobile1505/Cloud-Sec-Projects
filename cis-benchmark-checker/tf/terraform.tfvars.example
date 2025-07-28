@@ -1,0 +1,24 @@
+# Example terraform.tfvars file
+# Copy this to terraform.tfvars and modify as needed
+
+# Basic Configuration
+aws_region    = "us-east-1"
+environment   = "test"
+project_name  = "cis-benchmark-test"
+
+# VPC Configuration
+vpc_cidr               = "10.0.0.0/16"
+public_subnet_cidrs    = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs   = ["10.0.10.0/24", "10.0.20.0/24"]
+
+# Feature Flags
+create_non_compliant_resources = true   # Set to true to create intentionally non-compliant resources
+enable_flow_logs              = true   # Enable VPC Flow Logs (CIS 5.5)
+enable_config                 = true   # Enable AWS Config (CIS 3.5)
+
+# S3 Bucket Name (must be globally unique)
+# If not specified, will auto-generate: {project_name}-cloudtrail-{account_id}-{region}
+# cloudtrail_bucket_name = "my-unique-cloudtrail-bucket-name"
+
+# Notification Configuration
+notification_email = "admin@yourdomain.com"
