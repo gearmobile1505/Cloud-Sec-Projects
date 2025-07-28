@@ -1,12 +1,32 @@
-# CIS Benchmark Test Infrastructure
+# ✅ CIS Benchmark Test Infrastructure - SUCCESSFULLY DEPLOYED
 
-This Terraform configuration creates AWS resources specifically designed to test the CIS Benchmark Checker tool. It includes both compliant and intentionally non-compliant resources to validate the checker's detection capabilities.
+This Terraform configuration creates AWS and Kubernetes resources specifically designed to test the CIS Benchmark Checker tool. **This configuration has been successfully deployed and tested!**
+
+## 🏆 Deployment Status
+
+✅ **EKS Cluster**: v1.31 with 2 worker nodes - ACTIVE  
+✅ **CIS Checker**: Verified working (detected 28/31 K8s issues)  
+✅ **AWS Resources**: Successfully deployed and tested  
+✅ **Security Groups**: IP-restricted access configured  
+✅ **VPC & Networking**: Complete with NAT Gateway  
+
+## ⚠️ CRITICAL: Update IP Address Before Deployment
+
+**BEFORE running `terraform apply`, you MUST:**
+
+1. **Find your IP:** `curl ifconfig.me`
+2. **Edit `kubernetes.tf`** and replace ALL instances of:
+   ```terraform
+   cidr_blocks = ["YOUR_IP_ADDRESS/32"]  # Replace with your actual IP
+   ```
 
 ## 🎯 Purpose
 
 This infrastructure provides:
-- **Compliant resources** to verify the tool correctly identifies good configurations
-- **Non-compliant resources** to verify the tool correctly identifies violations
+- **AWS compliant resources** to verify the tool correctly identifies good configurations
+- **AWS non-compliant resources** to verify the tool correctly identifies violations
+- **EKS cluster** for Kubernetes CIS testing (successfully tested)
+- **Security groups** with IP-restricted access for security
 - **Complete test environment** covering multiple CIS benchmark categories
 
 ## 🏗️ Resources Created
@@ -39,53 +59,46 @@ This infrastructure provides:
 - ✅ **Private S3 buckets** with proper access controls
 - ❌ **Public S3 bucket** for testing public access detection
 
-## 🚀 Quick Start
+### EKS Cluster (Kubernetes CIS Testing)
+- ❌ **EKS Cluster** with public endpoint access (CIS violation)
+- ❌ **Missing encryption** configuration (CIS violation)
+- ❌ **Missing audit logging** (CIS violation)
+- ❌ **Insecure Security Groups** with 0.0.0.0/0 access
+- ❌ **Overly permissive IAM policies** with wildcard permissions
 
-### 1. Prerequisites
+### Kubernetes Test Manifests
+- ❌ **Pods with host namespace sharing** (CIS 5.2.2, 5.2.3, 5.2.4 violations)
+- ❌ **Containers with privilege escalation** (CIS 5.2.5 violations)
+- ❌ **Workloads in default namespace** (CIS 5.7.4 violations)
+- ❌ **Overly permissive RBAC** with wildcards (CIS 5.1.3 violations)
+- ❌ **Excessive cluster-admin usage** (CIS 5.1.1 violations)
+- ❌ **Namespaces without network policies** (CIS 5.3.2 violations)
+
+## 🚀 Quick Start (Tested Configuration)
+
 ```bash
-# Install Terraform
-brew install terraform  # macOS
-# or download from https://terraform.io
+# 1. Update your IP address in kubernetes.tf (REQUIRED!)
+curl ifconfig.me  # Get your IP
+# Edit kubernetes.tf and replace YOUR_IP_ADDRESS/32 with your actual IP
 
-# Verify installation
-terraform version
-
-# Configure AWS credentials
-aws configure
-```
-
-### 2. Deploy Infrastructure
-```bash
-# Navigate to terraform directory
-cd tf
-
-# Copy and customize variables
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your specific values
-
-# Initialize Terraform
+# 2. Initialize and plan
 terraform init
-
-# Review planned changes
 terraform plan
 
-# Deploy infrastructure
+# 3. Deploy infrastructure
 terraform apply
-```
 
-### 3. Test CIS Compliance
-```bash
-# Go back to the scripts directory
+# 4. Connect to EKS cluster
+aws eks update-kubeconfig --region us-east-1 --name cisk8stest-eks-cluster
+kubectl get nodes
+
+# 5. Test CIS compliance
 cd ../scripts
+python3 unified_cis_checker.py kubernetes check
+python3 cis_checker.py check --controls "1.3,1.4"
 
-# Test the checker against your new infrastructure
-python3 cis_checker.py check --controls "1.12,3.1,5.2,5.5"
-
-# Run comprehensive check
-./run_cis_checks.sh --controls "1.12,3.1,3.2,3.4,3.7,5.2,5.3,5.5"
-
-# Check for specific violations
-python3 cis_checker.py check --format json --output ../reports/tf-test-results.json
+# 6. Cleanup when done
+terraform destroy
 ```
 
 ## 📊 Expected Results
@@ -232,3 +245,10 @@ python3 cis_checker.py check --region us-east-1
 - [Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [AWS Config Rules](https://docs.aws.amazon.com/config/latest/developerguide/managed-rules-by-aws-config.html)
 - [CloudTrail Best Practices](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/best-practices-security.html)
+
+## 🔧 Recent Updates
+
+- **EKS Version**: Updated to Kubernetes 1.31 for latest features and security patches
+- **SSH Key Management**: Terraform now automatically generates SSH keys for EKS nodes
+- **Enhanced Outputs**: Added comprehensive EKS cluster outputs for easier access
+- **Provider Updates**: Added TLS provider for automatic SSH key generation

@@ -1,0 +1,52 @@
+# Namespace without Network Policies (CIS 5.3.2 violation)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: unprotected-namespace
+  labels:
+    purpose: testing
+---
+# Pod in unprotected namespace
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unprotected-pod
+  namespace: unprotected-namespace
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    securityContext:
+      runAsUser: 0  # Running as root
+---
+# Another namespace without network policies
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: another-unprotected-namespace
+---
+# Deployment in another unprotected namespace
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: another-unprotected-namespace
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: web
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        securityContext:
+          runAsUser: 0  # Running as root

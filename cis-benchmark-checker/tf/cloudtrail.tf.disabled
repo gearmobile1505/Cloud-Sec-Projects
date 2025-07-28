@@ -117,7 +117,7 @@ resource "aws_kms_key" "cloudtrail" {
 
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-cloudtrail-kms"
-    Note = "CIS 3.7 & 3.8 Compliant - Encryption with key rotation"
+    Note = "CIS 3.7 and 3.8 Compliant - Encryption with key rotation"
   })
 }
 

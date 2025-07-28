@@ -160,7 +160,7 @@ resource "aws_config_configuration_recorder" "main" {
     include_global_resource_types = true
   }
 
-  depends_on = [aws_config_delivery_channel.main]
+  depends_on = [aws_config_configuration_recorder.main]
 }
 
 # AWS Config Delivery Channel
@@ -170,7 +170,7 @@ resource "aws_config_delivery_channel" "main" {
   name           = "${var.project_name}-config-delivery-channel"
   s3_bucket_name = aws_s3_bucket.config[0].bucket
 
-  depends_on = [aws_s3_bucket_policy.config]
+  depends_on = [aws_s3_bucket_policy.config, aws_config_configuration_recorder.main]
 }
 
 # Enable Config Configuration Recorder
@@ -190,7 +190,7 @@ resource "aws_config_config_rule" "root_access_key_check" {
 
   source {
     owner             = "AWS"
-    source_identifier = "ROOT_ACCESS_KEY_CHECK"
+    source_identifier = "ROOT_NO_ACCESS_KEY_CHECK"
   }
 
   depends_on = [aws_config_configuration_recorder.main]

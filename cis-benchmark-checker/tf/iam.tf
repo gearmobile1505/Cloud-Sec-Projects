@@ -7,7 +7,7 @@ resource "aws_iam_user" "test_user" {
 
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-test-user"
-    Note = "Test user for CIS 1.3, 1.4 compliance testing"
+    Note = "Test user for CIS 1.3 and 1.4 compliance testing"
   })
 }
 

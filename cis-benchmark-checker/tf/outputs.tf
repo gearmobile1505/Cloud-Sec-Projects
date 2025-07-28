@@ -42,26 +42,26 @@ output "database_security_group_id" {
   value       = aws_security_group.database.id
 }
 
-# CloudTrail Information
-output "cloudtrail_arn" {
-  description = "ARN of the CloudTrail"
-  value       = aws_cloudtrail.main.arn
-}
+# CloudTrail Information (Disabled for cleanup)
+# output "cloudtrail_arn" {
+#   description = "ARN of the CloudTrail"
+#   value       = aws_cloudtrail.main.arn
+# }
 
-output "cloudtrail_bucket_name" {
-  description = "Name of the CloudTrail S3 bucket"
-  value       = aws_s3_bucket.cloudtrail.bucket
-}
+# output "cloudtrail_bucket_name" {
+#   description = "Name of the CloudTrail S3 bucket"
+#   value       = aws_s3_bucket.cloudtrail.bucket
+# }
 
-output "cloudtrail_kms_key_id" {
-  description = "ID of the CloudTrail KMS key"
-  value       = aws_kms_key.cloudtrail.key_id
-}
+# output "cloudtrail_kms_key_id" {
+#   description = "ID of the CloudTrail KMS key"
+#   value       = aws_kms_key.cloudtrail.key_id
+# }
 
-output "cloudtrail_kms_key_arn" {
-  description = "ARN of the CloudTrail KMS key"
-  value       = aws_kms_key.cloudtrail.arn
-}
+# output "cloudtrail_kms_key_arn" {
+#   description = "ARN of the CloudTrail KMS key"
+#   value       = aws_kms_key.cloudtrail.arn
+# }
 
 # IAM Information
 output "test_user_name" {
@@ -96,16 +96,16 @@ output "public_bucket_name" {
   value       = var.create_non_compliant_resources ? aws_s3_bucket.public_bucket[0].bucket : null
 }
 
-# Config Information
-output "config_bucket_name" {
-  description = "Name of the AWS Config S3 bucket"
-  value       = var.enable_config ? aws_s3_bucket.config[0].bucket : null
-}
+# Config Information (Disabled for cleanup)
+# output "config_bucket_name" {
+#   description = "Name of the AWS Config S3 bucket"
+#   value       = var.enable_config ? aws_s3_bucket.config[0].bucket : null
+# }
 
-output "config_recorder_name" {
-  description = "Name of the AWS Config configuration recorder"
-  value       = var.enable_config ? aws_config_configuration_recorder.main[0].name : null
-}
+# output "config_recorder_name" {
+#   description = "Name of the AWS Config configuration recorder"
+#   value       = var.enable_config ? aws_config_configuration_recorder.main[0].name : null
+# }
 
 # VPC Flow Logs
 output "vpc_flow_log_id" {
@@ -124,24 +124,21 @@ output "region" {
   value       = data.aws_region.current.name
 }
 
-# CIS Compliance Testing Information
-output "cis_compliance_test_summary" {
-  description = "Summary of resources for CIS compliance testing"
-  value = {
-    vpc_id                              = aws_vpc.main.id
-    vpc_flow_logs_enabled              = var.enable_flow_logs
-    cloudtrail_enabled                 = true
-    cloudtrail_multi_region            = aws_cloudtrail.main.is_multi_region_trail
-    cloudtrail_log_file_validation     = aws_cloudtrail.main.enable_log_file_validation
-    cloudtrail_kms_encrypted           = true
-    cloudtrail_cloudwatch_integration  = aws_cloudtrail.main.cloud_watch_logs_group_arn != null
-    config_enabled                     = var.enable_config
-    compliant_security_groups_created  = true
-    non_compliant_resources_created    = var.create_non_compliant_resources
-    iam_password_policy_configured     = true
-    kms_key_rotation_enabled           = aws_kms_key.cloudtrail.enable_key_rotation
-  }
-}
+# CIS Compliance Testing Information (Disabled for cleanup)
+# Note: CloudTrail and Config resources have been disabled for safe cleanup
+# Uncomment and update resource references when re-enabling these services
+# output "cis_compliance_test_summary" {
+#   description = "Summary of resources for CIS compliance testing"
+#   value = {
+#     vpc_id                              = aws_vpc.main.id
+#     vpc_flow_logs_enabled              = var.enable_flow_logs
+#     cloudtrail_enabled                 = false  # Disabled for cleanup
+#     config_enabled                     = var.enable_config
+#     compliant_security_groups_created  = true
+#     non_compliant_resources_created    = var.create_non_compliant_resources
+#     iam_password_policy_configured     = true
+#   }
+# }
 
 # Test Commands
 output "test_commands" {
@@ -154,4 +151,35 @@ output "test_commands" {
     automation_script   = "./run_cis_checks.sh --controls '1.12,3.1,5.2,5.5'"
     dry_run            = "./run_cis_checks.sh --dry-run"
   }
+}
+
+# EKS Cluster Information
+output "eks_cluster_name" {
+  description = "Name of the EKS cluster"
+  value       = aws_eks_cluster.main.name
+}
+
+output "eks_cluster_endpoint" {
+  description = "Endpoint for EKS control plane"
+  value       = aws_eks_cluster.main.endpoint
+}
+
+output "eks_cluster_security_group_id" {
+  description = "Security group ids attached to the EKS cluster"
+  value       = aws_eks_cluster.main.vpc_config[0].security_group_ids
+}
+
+output "eks_cluster_arn" {
+  description = "ARN of the EKS cluster"
+  value       = aws_eks_cluster.main.arn
+}
+
+output "eks_cluster_certificate_authority_data" {
+  description = "Base64 encoded certificate data required to communicate with the cluster"
+  value       = aws_eks_cluster.main.certificate_authority[0].data
+}
+
+output "eks_node_group_arn" {
+  description = "ARN of the EKS node group"
+  value       = aws_eks_node_group.main.arn
 }

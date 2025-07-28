@@ -41,6 +41,9 @@ COMMANDS:
     apply       Deploy the test infrastructure
     destroy     Destroy the test infrastructure
     test        Run CIS compliance checks against the infrastructure
+    k8s-deploy  Deploy Kubernetes test resources
+    k8s-test    Run Kubernetes CIS compliance checks
+    k8s-cleanup Clean up Kubernetes test resources
     status      Show current infrastructure status
 
 OPTIONS:
@@ -54,6 +57,15 @@ EXAMPLES:
 
     # Test CIS compliance against deployed infrastructure
     $0 test
+
+    # Deploy Kubernetes test resources
+    $0 k8s-deploy
+
+    # Run Kubernetes CIS compliance checks
+    $0 k8s-test
+
+    # Clean up Kubernetes test resources
+    $0 k8s-cleanup
 
     # Clean up when done
     $0 destroy
@@ -81,6 +93,13 @@ check_prerequisites() {
     if ! aws sts get-caller-identity &>/dev/null; then
         print_error "AWS credentials not configured"
         print_info "Run 'aws configure' to set up credentials"
+        exit 1
+    fi
+    
+    # Check kubectl
+    if ! command -v kubectl &> /dev/null; then
+        print_error "kubectl is required but not installed"
+        print_info "Install from: https://kubernetes.io/docs/tasks/tools/"
         exit 1
     fi
     
@@ -233,6 +252,54 @@ run_cis_tests() {
     print_status "CIS compliance testing completed"
 }
 
+deploy_k8s_resources() {
+    print_info "Deploying Kubernetes test resources..."
+    
+    if [ -f "$SCRIPT_DIR/k8s-deploy.sh" ]; then
+        if "$SCRIPT_DIR/k8s-deploy.sh" deploy; then
+            print_status "Kubernetes test resources deployed successfully"
+        else
+            print_error "Failed to deploy Kubernetes test resources"
+            exit 1
+        fi
+    else
+        print_error "k8s-deploy.sh not found"
+        exit 1
+    fi
+}
+
+cleanup_k8s_resources() {
+    print_info "Cleaning up Kubernetes test resources..."
+    
+    if [ -f "$SCRIPT_DIR/k8s-deploy.sh" ]; then
+        if "$SCRIPT_DIR/k8s-deploy.sh" cleanup; then
+            print_status "Kubernetes test resources cleaned up successfully"
+        else
+            print_error "Failed to clean up Kubernetes test resources"
+            exit 1
+        fi
+    else
+        print_error "k8s-deploy.sh not found"
+        exit 1
+    fi
+}
+
+run_k8s_cis_tests() {
+    print_info "Running Kubernetes CIS compliance tests..."
+    
+    if [ -f "$SCRIPT_DIR/k8s-deploy.sh" ]; then
+        if "$SCRIPT_DIR/k8s-deploy.sh" check; then
+            print_status "Kubernetes CIS checks completed"
+        else
+            print_error "Kubernetes CIS checks failed"
+            exit 1
+        fi
+    else
+        print_error "k8s-deploy.sh not found"
+        exit 1
+    fi
+}
+
 # Parse command line arguments
 AUTO_APPROVE=false
 
@@ -256,6 +323,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         test)
             COMMAND="test"
+            shift
+            ;;
+        k8s-deploy)
+            COMMAND="k8s-deploy"
+            shift
+            ;;
+        k8s-test)
+            COMMAND="k8s-test"
+            shift
+            ;;
+        k8s-cleanup)
+            COMMAND="k8s-cleanup"
             shift
             ;;
         status)
@@ -313,6 +392,15 @@ case $COMMAND in
         ;;
     test)
         run_cis_tests
+        ;;
+    k8s-deploy)
+        deploy_k8s_resources
+        ;;
+    k8s-test)
+        run_k8s_cis_tests
+        ;;
+    k8s-cleanup)
+        cleanup_k8s_resources
         ;;
     status)
         terraform_status

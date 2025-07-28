@@ -15,6 +15,27 @@ aws:
   # Session duration for cross-account access (in seconds)
   session_duration: 3600
 
+# Kubernetes Configuration
+kubernetes:
+  # Default kubeconfig path (null means use default)
+  kubeconfig_path: null
+  
+  # Default context to use (null means use current context)
+  context: null
+  
+  # Namespaces to include in checks (empty means all namespaces)
+  include_namespaces: []
+  
+  # Namespaces to exclude from checks
+  exclude_namespaces: 
+    - "kube-system"
+    - "kube-public" 
+    - "kube-node-lease"
+    - "local-path-storage"
+  
+  # Skip checks that require cluster-admin privileges
+  skip_privileged_checks: false
+
 # Control Configuration
 controls:
   # Controls to run by default (empty means all implemented controls)

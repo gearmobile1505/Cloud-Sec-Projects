@@ -1,0 +1,65 @@
+# Overly permissive RBAC with CIS violations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: overly-permissive-role
+rules:
+- apiGroups: ["*"]        # 5.1.3 violation: Wildcard API groups
+  resources: ["*"]        # 5.1.3 violation: Wildcard resources  
+  verbs: ["*"]           # 5.1.3 violation: Wildcard verbs
+
+---
+# ClusterRoleBinding with excessive permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: overly-permissive-binding
+subjects:
+- kind: ServiceAccount
+  name: default           # CIS violation: Using default service account
+  namespace: default
+- kind: User
+  name: test-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin     # 5.1.1 violation: Excessive cluster-admin usage
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Another problematic ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wildcard-secrets-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["*"]           # 5.1.3 violation: Wildcard verbs on secrets
+- apiGroups: ["*"]       # 5.1.3 violation: Wildcard API groups
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+
+---
+# Service Account with automatic token mounting (potential issue)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: insecure-service-account
+  namespace: default      # CIS violation: Using default namespace
+automountServiceAccountToken: true  # Potential CIS concern depending on usage
+
+---
+# Role with excessive permissions in a namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default      # CIS violation: Using default namespace
+  name: excessive-role
+rules:
+- apiGroups: [""]
+  resources: ["*"]        # 5.1.3 violation: Wildcard resources
+  verbs: ["*"]           # 5.1.3 violation: Wildcard verbs
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["*"]           # 5.1.3 violation: Wildcard verbs
