@@ -158,45 +158,11 @@ aws logs describe-log-streams --log-group-name $LOG_GROUP
 3. Check route table modifications: `aws ec2 describe-route-tables --route-table-ids $(terraform output -raw risky_route_table_id)`
 4. Review flow logs: `aws logs filter-log-events --log-group-name $(terraform output -raw vpc_flow_log_group)`
 
-### Phase 4: Restoration Testing
-1. Use the generated restoration guide from emergency script
-2. Restore original configurations
-3. Verify full functionality
-
-## Expected Results
-
-### Security Group Detection
-- **3 security groups flagged** for remediation
-- **2 security groups marked as secure**
-- **Detailed risk assessment** with port-specific analysis
-
-### VPC Emergency Response
-- **Permissive NACL detected** and lockdown rules applied
-- **Risky route tables identified** and modified
-- **Internet access controlled** through gateway management
-- **Comprehensive restoration guide** generated
-
-### Monitoring
-- **VPC Flow Logs capturing** all network traffic
-- **CloudWatch logs available** for analysis
-- **Audit trail maintained** for all operations
-
-## Cost Considerations
-
-### Free Tier Resources
-- VPC, subnets, security groups, route tables: **Free**
-- Internet Gateway: **Free**
-- VPC Flow Logs: **Free** (within limits)
-
-### Billable Resources
-- **NAT Gateway**: ~$0.045/hour + data processing charges
-- **CloudWatch Logs**: $0.50/GB ingested (minimal for testing)
-- **Elastic IP**: **Free** while attached to NAT Gateway
 
 ### Cost Optimization
 - **Total cost**: ~$1-2/day for testing
 - **Cleanup**: Run `terraform destroy` when done
-- **EC2 instances**: Commented out to avoid charges
+
 
 ## Security Warnings
 
@@ -207,14 +173,6 @@ aws logs describe-log-streams --log-group-name $LOG_GROUP
 - **Clean up resources after testing**
 - **Monitor AWS costs during testing**
 - **The permissive NACL allows dangerous access patterns**
-
-## Troubleshooting
-
-### Common Issues
-1. **Permission errors**: Ensure AWS credentials have EC2, VPC, and CloudWatch permissions
-2. **Resource limits**: Check AWS service quotas for your region
-3. **IP configuration**: Update `allowed_ssh_cidr` with your actual IP
-4. **Region availability**: Some resources may not be available in all regions
 
 ### Cleanup
 ```bash

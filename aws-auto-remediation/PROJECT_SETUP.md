@@ -1,6 +1,6 @@
 # Project Setup and Directory Structure
 
-This document explains the correct project structure and how to use the AWS Security Automation tools after our troubleshooting and consolidation process.
+This document explains the correct project structure and how to use the AWS Security Automation tools.
 
 ## Final Directory Structure
 
@@ -31,7 +31,7 @@ aws-auto-remediation/
 
 ### For Terraform Operations
 ```bash
-cd /Users/marcaelissanders/Desktop/Cloud-Sec-Projects/aws-auto-remediation/tf
+cd ./Cloud-Sec-Projects/aws-auto-remediation/tf
 
 # All terraform commands work from here:
 terraform plan
@@ -41,7 +41,7 @@ terraform output
 
 ### For Security Group Remediation
 ```bash
-cd /Users/marcaelissanders/Desktop/Cloud-Sec-Projects/aws-auto-remediation/tf
+cd ./Cloud-Sec-Projects/aws-auto-remediation/tf
 
 # All python commands work with relative paths:
 python3 ../automation/security_group_remediation.py find
@@ -50,7 +50,7 @@ python3 ../automation/security_group_remediation.py bulk-remediate --dry-run
 
 ### For Emergency VPC Remediation
 ```bash
-cd /Users/marcaelissanders/Desktop/Cloud-Sec-Projects/aws-auto-remediation
+cd ./Cloud-Sec-Projects/aws-auto-remediation
 
 # Emergency script works from project root:
 ./scripts/emergency_remediation.sh --dry-run --vpc vpc-0c4f84d7379b8f939
@@ -74,7 +74,7 @@ cd /Users/marcaelissanders/Desktop/Cloud-Sec-Projects/aws-auto-remediation
 
 ```bash
 # From tf/ directory:
-cd /Users/marcaelissanders/Desktop/Cloud-Sec-Projects/aws-auto-remediation/tf
+cd ./Cloud-Sec-Projects/aws-auto-remediation/tf
 
 # Find risky security groups
 python3 ../automation/security_group_remediation.py find --ports "22,3389"
