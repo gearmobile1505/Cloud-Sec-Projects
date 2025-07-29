@@ -270,30 +270,42 @@ jobs:
           version: 'latest'
       
       - name: Configure kubectl for EKS
+        id: kubectl_setup
+        continue-on-error: true
         run: |
           # Get cluster name from terraform output or environment variable
           CLUSTER_NAME="${{ secrets.EKS_CLUSTER_NAME || 'cisk8stest-eks-cluster' }}"
-          aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME
           
-          # Verify connection
-          kubectl cluster-info
-          kubectl get nodes
+          echo "Checking if EKS cluster '$CLUSTER_NAME' exists..."
+          
+          # Check if cluster exists first
+          if aws eks describe-cluster --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME >/dev/null 2>&1; then
+            echo "EKS cluster found. Configuring kubectl..."
+            aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME
+            
+            # Verify connection
+            kubectl cluster-info
+            kubectl get nodes
+            echo "kubectl_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::EKS cluster '$CLUSTER_NAME' not found. Skipping Kubernetes compliance checks."
+            echo "This is normal if infrastructure hasn't been deployed yet."
+            echo "kubectl_success=false" >> $GITHUB_OUTPUT
+          fi
       
       - name: Run Kubernetes CIS Compliance Check
         id: k8s_check
+        if: steps.kubectl_setup.outputs.kubectl_success == 'true'
         run: |
           cd cis-benchmark-checker/scripts
           
           echo "Running Kubernetes CIS compliance check..."
           
           # Run the K8s compliance check
-          python3 k8s_cis_checker.py --output json > ../k8s_cis_results.json
+          python3 k8s_cis_checker.py --output ../k8s_cis_results.json
           
-          # Also generate HTML report
-          python3 k8s_cis_checker.py --output html > ../k8s_cis_report.html
-          
-          # Check results
-          FAILED_CHECKS=$(jq '.summary.failed_checks' ../k8s_cis_results.json)
+          # Check results (using correct JSON structure)
+          FAILED_CHECKS=$(jq '.summary.non_compliant // 0' ../k8s_cis_results.json)
           echo "failed_checks=$FAILED_CHECKS" >> $GITHUB_OUTPUT
           
           if [ "$FAILED_CHECKS" -gt 0 ]; then
@@ -303,6 +315,32 @@ jobs:
             echo "status=passed" >> $GITHUB_OUTPUT
             echo "::notice::All Kubernetes compliance checks passed!"
           fi
+      
+      - name: Create placeholder for skipped K8s check
+        if: steps.kubectl_setup.outputs.kubectl_success == 'false'
+        run: |
+          cd cis-benchmark-checker
+          
+          # Create placeholder JSON for when cluster doesn't exist
+          cat > k8s_cis_results.json << 'EOF'
+          {
+            "report_metadata": {
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "cluster_name": "not-found",
+              "total_checks": 0,
+              "note": "EKS cluster not found - skipping Kubernetes compliance checks"
+            },
+            "summary": {
+              "compliant": 0,
+              "non_compliant": 0,
+              "not_applicable": 0,
+              "insufficient_data": 0
+            },
+            "results": []
+          }
+          EOF
+          
+          echo "status=skipped" >> $GITHUB_OUTPUT
       
       - name: Upload Kubernetes CIS Results
         uses: actions/upload-artifact@v4
