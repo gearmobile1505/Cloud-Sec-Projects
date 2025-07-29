@@ -1,0 +1,363 @@
+name: Deploy and Test CIS Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy (dev/staging)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+        - deploy
+        - test-only
+        - destroy
+      create_non_compliant:
+        description: 'Create non-compliant resources for testing'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+  TF_VERSION: '1.5.0'
+
+jobs:
+  deploy-infrastructure:
+    name: Deploy Test Infrastructure
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'deploy'
+    
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    
+    defaults:
+      run:
+        working-directory: cis-benchmark-checker/tf
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+      
+      - name: Create terraform.tfvars
+        run: |
+          cat > terraform.tfvars << EOF
+          environment = "${{ github.event.inputs.environment }}"
+          prefix = "cis-${{ github.event.inputs.environment }}-${{ github.run_number }}"
+          create_non_compliant_resources = ${{ github.event.inputs.create_non_compliant }}
+          enable_flow_logs = true
+          enable_config = true
+          
+          # GitHub Actions IP (will be updated with actual runner IP)
+          allowed_ssh_cidr = ["$(curl -s ifconfig.me)/32"]
+          
+          tags = {
+            Environment = "${{ github.event.inputs.environment }}"
+            Project     = "CIS-Benchmark-Testing"
+            CreatedBy   = "GitHub-Actions"
+            RunNumber   = "${{ github.run_number }}"
+            Repository  = "${{ github.repository }}"
+          }
+          EOF
+          
+          echo "Created terraform.tfvars:"
+          cat terraform.tfvars
+      
+      - name: Terraform Init
+        id: init
+        run: |
+          terraform init
+          echo "::notice::Terraform initialized successfully"
+      
+      - name: Terraform Validate
+        id: validate
+        run: |
+          terraform validate
+          echo "::notice::Terraform configuration is valid"
+      
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -out=tfplan -detailed-exitcode
+          echo "plan_exitcode=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+      
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/tfplan
+          retention-days: 7
+      
+      - name: Terraform Apply
+        if: steps.plan.outputs.plan_exitcode == 2
+        id: apply
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "::notice::Infrastructure deployed successfully"
+      
+      - name: Save Terraform Outputs
+        if: success()
+        run: |
+          terraform output -json > terraform_outputs.json
+          
+          # Extract key information
+          echo "## 🚀 Infrastructure Deployed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**AWS Account:** $(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f terraform_outputs.json ]; then
+            echo "### 📋 Key Resources Created:" >> $GITHUB_STEP_SUMMARY
+            
+            # VPC Info
+            VPC_ID=$(jq -r '.vpc_id.value // "N/A"' terraform_outputs.json)
+            echo "- **VPC ID:** $VPC_ID" >> $GITHUB_STEP_SUMMARY
+            
+            # EKS Cluster
+            EKS_NAME=$(jq -r '.eks_cluster_name.value // "N/A"' terraform_outputs.json)
+            echo "- **EKS Cluster:** $EKS_NAME" >> $GITHUB_STEP_SUMMARY
+            
+            # Security Groups
+            echo "- **Security Groups Created:** $(jq 'keys | length' terraform_outputs.json | grep security_group || echo "Multiple")" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Upload Terraform Outputs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/terraform_outputs.json
+          retention-days: 30
+
+  run-compliance-tests:
+    name: Run Compliance Tests
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: always() && (github.event.inputs.action == 'deploy' || github.event.inputs.action == 'test-only')
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd cis-benchmark-checker
+          pip install -r scripts/requirements.txt
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+      
+      - name: Download Terraform Outputs
+        if: github.event.inputs.action == 'deploy'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-outputs-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/
+      
+      - name: Wait for Infrastructure Stabilization
+        run: |
+          echo "Waiting 2 minutes for infrastructure to stabilize..."
+          sleep 120
+      
+      - name: Run Full CIS Compliance Test Suite
+        run: |
+          cd cis-benchmark-checker/scripts
+          
+          echo "Running comprehensive CIS compliance tests..."
+          
+          # Run AWS CIS checks
+          echo "### AWS CIS Compliance Check"
+          python3 cis_checker.py check --profile ${{ github.event.inputs.environment }} --output json > ../test_results_aws.json
+          
+          # Run extended checks
+          echo "### Extended CIS Compliance Check"
+          python3 extended_cis.py --environment ${{ github.event.inputs.environment }} --output json > ../test_results_extended.json
+          
+          # Run unified checks if available
+          if [ -f "unified_cis_checker.py" ]; then
+            echo "### Unified CIS Compliance Check"
+            python3 unified_cis_checker.py --profile ${{ github.event.inputs.environment }} > ../test_results_unified.json
+          fi
+          
+          echo "All compliance tests completed"
+      
+      - name: Run Kubernetes Tests
+        if: success()
+        run: |
+          cd cis-benchmark-checker/scripts
+          
+          # Configure kubectl
+          CLUSTER_NAME="cis-${{ github.event.inputs.environment }}-${{ github.run_number }}-eks-cluster"
+          aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME || echo "EKS cluster not found or not ready"
+          
+          # Run K8s tests if cluster is available
+          if kubectl cluster-info &>/dev/null; then
+            echo "### Kubernetes CIS Compliance Check"
+            python3 k8s_cis_checker.py --output json > ../test_results_k8s.json
+          else
+            echo "Kubernetes cluster not available for testing"
+          fi
+      
+      - name: Generate Test Report
+        if: always()
+        run: |
+          cd cis-benchmark-checker
+          
+          echo "## 🧪 Compliance Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Process AWS results
+          if [ -f "test_results_aws.json" ]; then
+            TOTAL_AWS=$(jq '.summary.total_checks' test_results_aws.json)
+            FAILED_AWS=$(jq '.summary.failed_checks' test_results_aws.json)
+            
+            echo "### 🛡️ AWS CIS Results" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Checks:** $TOTAL_AWS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Failed Checks:** $FAILED_AWS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$FAILED_AWS" -gt 0 ]; then
+              echo "**Failed AWS Checks:**" >> $GITHUB_STEP_SUMMARY
+              jq -r '.failed_checks[] | "- \(.control_id): \(.description)"' test_results_aws.json >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Process K8s results
+          if [ -f "test_results_k8s.json" ]; then
+            TOTAL_K8S=$(jq '.summary.total_checks' test_results_k8s.json)
+            FAILED_K8S=$(jq '.summary.failed_checks' test_results_k8s.json)
+            
+            echo "### ☸️ Kubernetes CIS Results" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Checks:** $TOTAL_K8S" >> $GITHUB_STEP_SUMMARY
+            echo "- **Failed Checks:** $FAILED_K8S" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-test-results-${{ github.run_number }}
+          path: |
+            cis-benchmark-checker/test_results_*.json
+            cis-benchmark-checker/test_results_*.html
+          retention-days: 30
+
+  destroy-infrastructure:
+    name: Destroy Test Infrastructure
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, run-compliance-tests]
+    if: always() && (github.event.inputs.action == 'destroy' || (github.event.inputs.action == 'deploy' && github.event.inputs.environment == 'dev'))
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    defaults:
+      run:
+        working-directory: cis-benchmark-checker/tf
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+      
+      - name: Download Terraform Plan (if exists)
+        if: github.event.inputs.action != 'destroy'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/
+        continue-on-error: true
+      
+      - name: Download Terraform Outputs
+        if: github.event.inputs.action != 'destroy'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-outputs-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/
+        continue-on-error: true
+      
+      - name: Recreate terraform.tfvars for destroy
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          cat > terraform.tfvars << EOF
+          environment = "${{ github.event.inputs.environment }}"
+          prefix = "cis-${{ github.event.inputs.environment }}-${{ github.run_number }}"
+          create_non_compliant_resources = false
+          enable_flow_logs = true
+          enable_config = true
+          allowed_ssh_cidr = ["0.0.0.0/0"]
+          EOF
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Destroy
+        run: |
+          echo "Destroying infrastructure..."
+          terraform destroy -auto-approve
+          echo "::notice::Infrastructure destroyed successfully"
+      
+      - name: Cleanup Artifacts
+        if: success()
+        run: |
+          echo "## 🗑️ Infrastructure Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Cleanup Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "**Run Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All test infrastructure has been successfully destroyed." >> $GITHUB_STEP_SUMMARY

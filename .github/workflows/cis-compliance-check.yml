@@ -1,0 +1,370 @@
+name: CIS Benchmark Compliance Check
+
+on:
+  # Run on pushes to main branch
+  push:
+    branches: [ main ]
+    paths:
+      - 'cis-benchmark-checker/**'
+  
+  # Run on pull requests
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'cis-benchmark-checker/**'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to check (dev/staging/prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+        - prod
+      controls:
+        description: 'Specific controls to check (comma-separated, e.g., 1.12,3.1,5.2)'
+        required: false
+        type: string
+      notification_slack:
+        description: 'Send Slack notification'
+        required: false
+        default: true
+        type: boolean
+
+  # Schedule daily compliance checks
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  aws-cis-compliance:
+    name: AWS CIS Compliance Check
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write   # Required for OIDC
+      contents: read
+      issues: write     # For creating issues on failures
+      pull-requests: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd cis-benchmark-checker
+          pip install -r scripts/requirements.txt
+          # Install additional dependencies for GitHub Actions
+          pip install pytest pytest-html pytest-json-report
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+        #   role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        #   aws-region: ${{ env.AWS_DEFAULT_REGION }}
+          # Alternative: use access keys if OIDC not set up
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+      
+      - name: Verify AWS connection
+        run: |
+          aws sts get-caller-identity
+          echo "AWS Account: $(aws sts get-caller-identity --query Account --output text)"
+          echo "AWS Region: $AWS_DEFAULT_REGION"
+      
+      - name: Run CIS AWS Compliance Check
+        id: aws_check
+        run: |
+          cd cis-benchmark-checker/scripts
+          
+          # Determine which controls to run
+          if [ -n "${{ github.event.inputs.controls }}" ]; then
+            CONTROLS="${{ github.event.inputs.controls }}"
+          else
+            CONTROLS=""
+          fi
+          
+          echo "Running CIS checks..."
+          echo "Controls: ${CONTROLS:-all}"
+          
+          # Run the compliance check with proper command structure
+          if [ -n "$CONTROLS" ]; then
+            python3 cis_checker.py --region $AWS_DEFAULT_REGION check --controls "$CONTROLS" --format json --output ../aws_cis_results.json
+          else
+            python3 cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../aws_cis_results.json
+          fi
+          
+          # Check if there are any failures (using correct JSON structure)
+          FAILED_CHECKS=$(jq '.summary.non_compliant // 0' ../aws_cis_results.json)
+          echo "failed_checks=$FAILED_CHECKS" >> $GITHUB_OUTPUT
+          
+          # Set status
+          if [ "$FAILED_CHECKS" -gt 0 ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "::warning::Found $FAILED_CHECKS failed compliance checks"
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "::notice::All compliance checks passed!"
+          fi
+      
+      - name: Upload AWS CIS Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aws-cis-results-${{ github.run_number }}
+          path: |
+            cis-benchmark-checker/aws_cis_results.json
+            cis-benchmark-checker/aws_cis_report.html
+          retention-days: 30
+      
+      - name: Create compliance summary
+        if: always()
+        run: |
+          cd cis-benchmark-checker
+          
+          # Create a summary for GitHub
+          echo "## 🔐 AWS CIS Compliance Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment || 'dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "**AWS Account:** $(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "aws_cis_results.json" ]; then
+            TOTAL=$(jq '.report_metadata.total_checks' aws_cis_results.json)
+            COMPLIANT=$(jq '.summary.compliant' aws_cis_results.json)
+            NON_COMPLIANT=$(jq '.summary.non_compliant' aws_cis_results.json)
+            NOT_APPLICABLE=$(jq '.summary.not_applicable' aws_cis_results.json)
+            
+            echo "### 📊 Summary" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Checks:** $TOTAL" >> $GITHUB_STEP_SUMMARY
+            echo "- **Compliant:** ✅ $COMPLIANT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Non-Compliant:** ❌ $NON_COMPLIANT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Not Applicable:** ⚪ $NOT_APPLICABLE" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$NON_COMPLIANT" -gt 0 ]; then
+              echo "### ❌ Non-Compliant Checks" >> $GITHUB_STEP_SUMMARY
+              jq -r '.results[] | select(.status == "NON_COMPLIANT") | "- **\(.control_id):** \(.reason)"' aws_cis_results.json >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## 🔐 CIS Compliance Check Results\n\n';
+            
+            if (fs.existsSync('cis-benchmark-checker/aws_cis_results.json')) {
+              const results = JSON.parse(fs.readFileSync('cis-benchmark-checker/aws_cis_results.json', 'utf8'));
+              
+              comment += `**Status:** ${results.summary.non_compliant > 0 ? '❌ Failed' : '✅ Passed'}\n`;
+              comment += `**Total Checks:** ${results.report_metadata.total_checks}\n`;
+              comment += `**Compliant:** ✅ ${results.summary.compliant}\n`;
+              comment += `**Non-Compliant:** ❌ ${results.summary.non_compliant}\n\n`;
+              
+              if (results.summary.non_compliant > 0) {
+                comment += '### Non-Compliant Checks:\n';
+                results.results.filter(r => r.status === 'NON_COMPLIANT').forEach(check => {
+                  comment += `- **${check.control_id}:** ${check.reason}\n`;
+                });
+              }
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Create issue on failure
+        if: steps.aws_check.outputs.status == 'failed' && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let body = '## 🚨 Daily CIS Compliance Check Failed\n\n';
+            body += `**Date:** ${new Date().toISOString()}\n`;
+            body += `**Environment:** ${{ github.event.inputs.environment || 'dev' }}\n`;
+            body += `**Workflow Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+            
+            if (fs.existsSync('cis-benchmark-checker/aws_cis_results.json')) {
+              const results = JSON.parse(fs.readFileSync('cis-benchmark-checker/aws_cis_results.json', 'utf8'));
+              
+              body += `**Failed Checks:** ${results.summary.failed_checks}\n\n`;
+              body += '### Issues Found:\n';
+              results.failed_checks.forEach(check => {
+                body += `- **${check.control_id}:** ${check.description}\n`;
+              });
+            }
+            
+            body += '\n### Next Steps:\n';
+            body += '1. Review the failed compliance checks\n';
+            body += '2. Apply necessary remediation\n';
+            body += '3. Re-run the compliance check\n';
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 CIS Compliance Failure - ${new Date().toDateString()}`,
+              body: body,
+              labels: ['security', 'compliance', 'cis-benchmark']
+            });
+
+  kubernetes-cis-compliance:
+    name: Kubernetes CIS Compliance Check
+    runs-on: ubuntu-latest
+    needs: aws-cis-compliance
+    if: always()
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd cis-benchmark-checker
+          pip install -r scripts/requirements.txt
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # Use same access keys method as AWS job
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+      
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      - name: Configure kubectl for EKS
+        id: kubectl_setup
+        continue-on-error: true
+        run: |
+          # Get cluster name from terraform output or environment variable
+          CLUSTER_NAME="${{ secrets.EKS_CLUSTER_NAME || 'cisk8stest-eks-cluster' }}"
+          
+          echo "Checking if EKS cluster '$CLUSTER_NAME' exists..."
+          
+          # Check if cluster exists first
+          if aws eks describe-cluster --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME >/dev/null 2>&1; then
+            echo "EKS cluster found. Configuring kubectl..."
+            aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME
+            
+            # Verify connection
+            kubectl cluster-info
+            kubectl get nodes
+            echo "kubectl_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::EKS cluster '$CLUSTER_NAME' not found. Skipping Kubernetes compliance checks."
+            echo "This is normal if infrastructure hasn't been deployed yet."
+            echo "kubectl_success=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Run Kubernetes CIS Compliance Check
+        id: k8s_check
+        if: steps.kubectl_setup.outputs.kubectl_success == 'true'
+        run: |
+          cd cis-benchmark-checker/scripts
+          
+          echo "Running Kubernetes CIS compliance check..."
+          
+          # Run the K8s compliance check
+          python3 k8s_cis_checker.py --output ../k8s_cis_results.json
+          
+          # Check results (using correct JSON structure)
+          FAILED_CHECKS=$(jq '.summary.non_compliant // 0' ../k8s_cis_results.json)
+          echo "failed_checks=$FAILED_CHECKS" >> $GITHUB_OUTPUT
+          
+          if [ "$FAILED_CHECKS" -gt 0 ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "::warning::Found $FAILED_CHECKS failed Kubernetes compliance checks"
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "::notice::All Kubernetes compliance checks passed!"
+          fi
+      
+      - name: Create placeholder for skipped K8s check
+        if: steps.kubectl_setup.outputs.kubectl_success == 'false'
+        run: |
+          cd cis-benchmark-checker
+          
+          # Create placeholder JSON for when cluster doesn't exist
+          cat > k8s_cis_results.json << 'EOF'
+          {
+            "report_metadata": {
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "cluster_name": "not-found",
+              "total_checks": 0,
+              "note": "EKS cluster not found - skipping Kubernetes compliance checks"
+            },
+            "summary": {
+              "compliant": 0,
+              "non_compliant": 0,
+              "not_applicable": 0,
+              "insufficient_data": 0
+            },
+            "results": []
+          }
+          EOF
+          
+          echo "status=skipped" >> $GITHUB_OUTPUT
+      
+      - name: Upload Kubernetes CIS Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k8s-cis-results-${{ github.run_number }}
+          path: |
+            cis-benchmark-checker/k8s_cis_results.json
+            cis-benchmark-checker/k8s_cis_report.html
+          retention-days: 30
+
+#   notify:
+#     name: Send Notifications
+#     runs-on: ubuntu-latest
+#     needs: [aws-cis-compliance, kubernetes-cis-compliance]
+#     if: always() && (github.event.inputs.notification_slack == 'true' || github.event_name == 'schedule')
+    
+    # steps:
+    #   - name: Send Slack notification
+    #     if: always()
+    #     uses: 8398a7/action-slack@v3
+    #     with:
+    #       status: ${{ job.status }}
+    #       fields: repo,message,commit,author,action,eventName,ref,workflow
+    #       webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+    #     env:
+    #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
