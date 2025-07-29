@@ -38,6 +38,19 @@ variable "allowed_ssh_cidr" {
   # You can get your IP with: curl ifconfig.me
 }
 
+variable "instance_type" {
+  description = "EC2 instance type for test instances"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "public_key_content" {
+  description = "Public key content for EC2 key pair"
+  type        = string
+  default     = ""
+  # Add your public key content here if you want to deploy test instances
+}
+
 variable "private_subnet_cidr" {
   description = "CIDR block for private subnet"
   type        = string
