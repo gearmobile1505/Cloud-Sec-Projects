@@ -1,0 +1,151 @@
+name: Security Scan and Lint
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM UTC
+
+jobs:
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install security tools
+        run: |
+          pip install bandit safety checkov
+          
+          # Install additional tools
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          
+      - name: Run Bandit (Python Security)
+        run: |
+          find . -name "*.py" -not -path "./.git/*" | xargs bandit -r -f json -o bandit-report.json || true
+          bandit -r . -f txt || true
+      
+      - name: Run Safety (Dependency Check)
+        run: |
+          find . -name "requirements.txt" -exec safety check -r {} \; || true
+      
+      - name: Run Checkov (Infrastructure Security)
+        run: |
+          checkov -d . --framework terraform --output json --output-file checkov-report.json || true
+          checkov -d . --framework terraform || true
+      
+      - name: Run TruffleHog (Secrets Scanning)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+      
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ github.run_number }}
+          path: |
+            bandit-report.json
+            checkov-report.json
+          retention-days: 30
+
+  terraform-lint:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.5.0'
+      
+      - name: Install TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+      
+      - name: Validate Terraform configurations
+        run: |
+          find . -name "*.tf" -not -path "./.terraform/*" | xargs -I {} dirname {} | sort -u | while read dir; do
+            echo "Validating $dir"
+            cd "$dir"
+            terraform init -backend=false
+            terraform validate
+            tflint
+            cd - > /dev/null
+          done
+
+  shell-script-lint:
+    name: Shell Script Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+      
+      - name: Run ShellCheck
+        run: |
+          find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck || true
+
+  python-lint:
+    name: Python Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install linting tools
+        run: |
+          pip install flake8 black isort mypy pylint
+      
+      - name: Run Python linting
+        run: |
+          # Find Python files
+          find . -name "*.py" -not -path "./.git/*" > python_files.txt
+          
+          if [ -s python_files.txt ]; then
+            echo "Running Black (formatter check)..."
+            black --check --diff $(cat python_files.txt) || true
+            
+            echo "Running isort (import sorting)..."
+            isort --check-only --diff $(cat python_files.txt) || true
+            
+            echo "Running flake8 (style guide)..."
+            flake8 $(cat python_files.txt) || true
+            
+            echo "Running pylint (code analysis)..."
+            pylint $(cat python_files.txt) || true
+          fi
