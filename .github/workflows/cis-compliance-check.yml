@@ -96,27 +96,21 @@ jobs:
           if [ -n "${{ github.event.inputs.controls }}" ]; then
             CONTROLS="${{ github.event.inputs.controls }}"
           else
-            CONTROLS="all"
+            CONTROLS=""
           fi
           
-          # Set environment
-          ENVIRONMENT="${{ github.event.inputs.environment || 'dev' }}"
+          echo "Running CIS checks..."
+          echo "Controls: ${CONTROLS:-all}"
           
-          echo "Running CIS checks for environment: $ENVIRONMENT"
-          echo "Controls: $CONTROLS"
-          
-          # Run the compliance check
-          if [ "$CONTROLS" = "all" ]; then
-            python3 cis_checker.py check --profile $ENVIRONMENT --output json > ../aws_cis_results.json
+          # Run the compliance check with proper command structure
+          if [ -n "$CONTROLS" ]; then
+            python3 cis_checker.py --region $AWS_DEFAULT_REGION check --controls "$CONTROLS" --format json --output ../aws_cis_results.json
           else
-            python3 cis_checker.py check --profile $ENVIRONMENT --controls "$CONTROLS" --output json > ../aws_cis_results.json
+            python3 cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../aws_cis_results.json
           fi
           
-          # Also generate HTML report
-          python3 cis_checker.py check --profile $ENVIRONMENT --output html > ../aws_cis_report.html
-          
-          # Check if there are any failures
-          FAILED_CHECKS=$(jq '.summary.failed_checks' ../aws_cis_results.json)
+          # Check if there are any failures (using correct JSON structure)
+          FAILED_CHECKS=$(jq '.summary.non_compliant // 0' ../aws_cis_results.json)
           echo "failed_checks=$FAILED_CHECKS" >> $GITHUB_OUTPUT
           
           # Set status
@@ -152,19 +146,21 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -f "aws_cis_results.json" ]; then
-            TOTAL=$(jq '.summary.total_checks' aws_cis_results.json)
-            PASSED=$(jq '.summary.passed_checks' aws_cis_results.json)
-            FAILED=$(jq '.summary.failed_checks' aws_cis_results.json)
+            TOTAL=$(jq '.report_metadata.total_checks' aws_cis_results.json)
+            COMPLIANT=$(jq '.summary.compliant' aws_cis_results.json)
+            NON_COMPLIANT=$(jq '.summary.non_compliant' aws_cis_results.json)
+            NOT_APPLICABLE=$(jq '.summary.not_applicable' aws_cis_results.json)
             
             echo "### 📊 Summary" >> $GITHUB_STEP_SUMMARY
             echo "- **Total Checks:** $TOTAL" >> $GITHUB_STEP_SUMMARY
-            echo "- **Passed:** ✅ $PASSED" >> $GITHUB_STEP_SUMMARY
-            echo "- **Failed:** ❌ $FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "- **Compliant:** ✅ $COMPLIANT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Non-Compliant:** ❌ $NON_COMPLIANT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Not Applicable:** ⚪ $NOT_APPLICABLE" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             
-            if [ "$FAILED" -gt 0 ]; then
-              echo "### ❌ Failed Checks" >> $GITHUB_STEP_SUMMARY
-              jq -r '.failed_checks[] | "- **\(.control_id):** \(.description)"' aws_cis_results.json >> $GITHUB_STEP_SUMMARY
+            if [ "$NON_COMPLIANT" -gt 0 ]; then
+              echo "### ❌ Non-Compliant Checks" >> $GITHUB_STEP_SUMMARY
+              jq -r '.results[] | select(.status == "NON_COMPLIANT") | "- **\(.control_id):** \(.reason)"' aws_cis_results.json >> $GITHUB_STEP_SUMMARY
             fi
           fi
       
@@ -180,15 +176,15 @@ jobs:
             if (fs.existsSync('cis-benchmark-checker/aws_cis_results.json')) {
               const results = JSON.parse(fs.readFileSync('cis-benchmark-checker/aws_cis_results.json', 'utf8'));
               
-              comment += `**Status:** ${results.summary.failed_checks > 0 ? '❌ Failed' : '✅ Passed'}\n`;
-              comment += `**Total Checks:** ${results.summary.total_checks}\n`;
-              comment += `**Passed:** ✅ ${results.summary.passed_checks}\n`;
-              comment += `**Failed:** ❌ ${results.summary.failed_checks}\n\n`;
+              comment += `**Status:** ${results.summary.non_compliant > 0 ? '❌ Failed' : '✅ Passed'}\n`;
+              comment += `**Total Checks:** ${results.report_metadata.total_checks}\n`;
+              comment += `**Compliant:** ✅ ${results.summary.compliant}\n`;
+              comment += `**Non-Compliant:** ❌ ${results.summary.non_compliant}\n\n`;
               
-              if (results.summary.failed_checks > 0) {
-                comment += '### Failed Checks:\n';
-                results.failed_checks.forEach(check => {
-                  comment += `- **${check.control_id}:** ${check.description}\n`;
+              if (results.summary.non_compliant > 0) {
+                comment += '### Non-Compliant Checks:\n';
+                results.results.filter(r => r.status === 'NON_COMPLIANT').forEach(check => {
+                  comment += `- **${check.control_id}:** ${check.reason}\n`;
                 });
               }
             }
