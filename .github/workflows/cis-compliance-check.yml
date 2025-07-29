@@ -3,15 +3,17 @@ name: CIS Benchmark Compliance Check
 on:
   # Run on pushes to main branch
   push:
-    branches: [ main ]
+    branches: [ main, github-actions-testing ]
     paths:
       - 'cis-benchmark-checker/**'
+      - '.github/workflows/cis-compliance-check.yml'
   
   # Run on pull requests
   pull_request:
     branches: [ main ]
     paths:
       - 'cis-benchmark-checker/**'
+      - '.github/workflows/cis-compliance-check.yml'
   
   # Allow manual trigger
   workflow_dispatch:
@@ -74,9 +76,6 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-        #   role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        #   aws-region: ${{ env.AWS_DEFAULT_REGION }}
-          # Alternative: use access keys if OIDC not set up
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
@@ -259,7 +258,6 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # Use same access keys method as AWS job
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
