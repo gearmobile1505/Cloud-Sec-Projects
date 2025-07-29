@@ -85,26 +85,218 @@ We'll test the following workflows:
 
 #### Test 2.1: Configure AWS Authentication
 
-**Option A: Access Keys (Simpler)**
-1. Go to **Settings** → **Secrets and variables** → **Actions**
-2. Add these secrets:
+**Option A: Access Keys (Simpler Setup)**
+
+**Step 1: Create AWS IAM User**
+1. **Login to AWS Console** → Navigate to **IAM** service
+2. **Create User:**
+   - Click **Users** → **Add users**
+   - Username: `github-actions-cis-checker`
+   - Access type: ✅ **Programmatic access** (no console access needed)
+   - Click **Next: Permissions**
+
+3. **Attach Policies:**
+   - Click **Attach existing policies directly**
+   - Search and select:
+     - ✅ `ReadOnlyAccess` (for compliance checks)
+     - ✅ `PowerUserAccess` (for infrastructure deployment) OR create custom policy below
+   - Click **Next: Tags** → **Next: Review** → **Create user**
+
+4. **Save Credentials:**
+   - ⚠️ **IMPORTANT:** Download the CSV or copy the credentials now!
+   - Access Key ID: `AKIA...`
+   - Secret Access Key: `...`
+
+**Step 2: Add Secrets to GitHub**
+1. **Go to your GitHub repository**
+2. Navigate: **Settings** → **Secrets and variables** → **Actions**
+3. **Click "New repository secret"** and add:
+
    ```
-   AWS_ACCESS_KEY_ID = AKIA...
-   AWS_SECRET_ACCESS_KEY = your-secret-key
+   Name: AWS_ACCESS_KEY_ID
+   Value: AKIA... (your access key ID)
    ```
 
-**Option B: OIDC (More Secure)**
-1. Create an OIDC provider in AWS IAM
-2. Create a role that GitHub can assume
-3. Add secret:
    ```
-   AWS_ROLE_ARN = arn:aws:iam::123456789012:role/GitHubActionsRole
+   Name: AWS_SECRET_ACCESS_KEY  
+   Value: ... (your secret access key)
    ```
+
+**Custom IAM Policy (More Secure):**
+If you don't want PowerUserAccess, create this custom policy:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "ec2:Describe*",
+        "iam:Get*",
+        "iam:List*",
+        "cloudtrail:Describe*",
+        "cloudtrail:GetTrail*",
+        "config:Describe*",
+        "config:Get*",
+        "s3:GetBucket*",
+        "s3:ListBucket*",
+        "kms:Describe*",
+        "kms:List*",
+        "logs:Describe*",
+        "eks:Describe*",
+        "eks:List*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+---
+
+**Option B: OIDC (More Secure - Recommended for Production)**
+
+**Step 1: Create OIDC Provider in AWS**
+1. **AWS Console** → **IAM** → **Identity providers**
+2. **Add provider:**
+   - Provider type: **OpenID Connect**
+   - Provider URL: `https://token.actions.githubusercontent.com`
+   - Audience: `sts.amazonaws.com`
+   - Click **Add provider**
+
+**Step 2: Create IAM Role for GitHub Actions**
+1. **IAM** → **Roles** → **Create role**
+2. **Select trusted entity:**
+   - Type: **Web identity**
+   - Identity provider: **token.actions.githubusercontent.com**
+   - Audience: **sts.amazonaws.com**
+   - Click **Next**
+
+3. **Add permissions** (same policies as Option A)
+
+4. **Role details:**
+   - Role name: `GitHubActionsRole`
+   - Click **Create role**
+
+**Step 3: Configure Trust Policy**
+1. **Open the role** → **Trust relationships** → **Edit trust policy**
+2. **Replace with this policy:**
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+         },
+         "Action": "sts:AssumeRoleWithWebIdentity",
+         "Condition": {
+           "StringEquals": {
+             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+           },
+           "StringLike": {
+             "token.actions.githubusercontent.com:sub": "repo:gearmobile1505/Cloud-Sec-Projects:*"
+           }
+         }
+       }
+     ]
+   }
+   ```
+   Replace `YOUR_ACCOUNT_ID` with your AWS account ID
+
+**Step 4: Add Role ARN to GitHub Secrets**
+1. **Copy the Role ARN** from AWS (looks like: `arn:aws:iam::123456789012:role/GitHubActionsRole`)
+2. **GitHub repository** → **Settings** → **Secrets and variables** → **Actions**
+3. **Add secret:**
+   ```
+   Name: AWS_ROLE_ARN
+   Value: arn:aws:iam::123456789012:role/GitHubActionsRole
+   ```
+
+---
 
 #### Test 2.2: Optional Secrets
+
+**EKS Cluster Name (if you have existing cluster):**
 ```
-EKS_CLUSTER_NAME = your-existing-cluster-name (optional)
-SLACK_WEBHOOK = https://hooks.slack.com/services/... (optional)
+Name: EKS_CLUSTER_NAME
+Value: your-existing-cluster-name
+```
+
+**Slack Notifications (optional):**
+1. **Create Slack App:**
+   - Go to https://api.slack.com/apps
+   - Create new app → From scratch
+   - App name: `CIS Compliance Alerts`
+   - Choose your workspace
+
+2. **Enable Incoming Webhooks:**
+   - **Incoming Webhooks** → **On**
+   - **Add New Webhook to Workspace**
+   - Choose channel for notifications
+   - Copy the webhook URL
+
+3. **Add to GitHub:**
+   ```
+   Name: SLACK_WEBHOOK
+   Value: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+   ```
+
+---
+
+#### Test 2.3: Verify Setup
+
+**Test AWS Authentication Locally:**
+```bash
+# For Access Keys method:
+export AWS_ACCESS_KEY_ID="your-key-id"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+aws sts get-caller-identity
+
+# Should return your account info
+```
+
+**Test in GitHub Actions:**
+1. **Commit and push** your changes to trigger a workflow
+2. **Check Actions tab** for any authentication errors
+3. **Look for this in workflow logs:**
+   ```
+   ✅ AWS credentials configure successfully
+   ✅ Account: 123456789012
+   ✅ Region: us-east-1
+   ```
+
+---
+
+#### Test 2.4: Security Best Practices
+
+**Secrets Management:**
+- ✅ Never commit secrets to code
+- ✅ Use environment-specific secrets for dev/staging/prod
+- ✅ Rotate credentials regularly (every 90 days)
+- ✅ Use least privilege IAM policies
+- ✅ Monitor AWS CloudTrail for unexpected API calls
+
+**GitHub Secrets:**
+- ✅ Secrets are encrypted and only available during workflow execution
+- ✅ Secrets are not visible in logs (they get masked as ***)
+- ✅ Only repository collaborators with admin access can view/edit secrets
+
+**Troubleshooting Authentication:**
+```bash
+# Common issues:
+# 1. Wrong region in secrets
+# 2. IAM policy missing required permissions  
+# 3. OIDC trust policy incorrect
+# 4. Expired/invalid access keys
+
+# Debug steps:
+# 1. Check workflow logs for specific error messages
+# 2. Test credentials locally with AWS CLI
+# 3. Verify IAM policies in AWS Console
+# 4. Check CloudTrail for failed API calls
 ```
 
 ---
