@@ -47,21 +47,3 @@ variable "enable_flow_logs" {
   type        = bool
   default     = true
 }
-
-variable "cloudtrail_bucket_name" {
-  description = "S3 bucket name for CloudTrail logs (must be globally unique)"
-  type        = string
-  default     = null
-}
-
-variable "enable_config" {
-  description = "Enable AWS Config (CIS 3.5)"
-  type        = bool
-  default     = true
-}
-
-variable "notification_email" {
-  description = "Email address for SNS notifications"
-  type        = string
-  default     = "admin@example.com"
-}
