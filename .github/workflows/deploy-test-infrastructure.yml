@@ -207,7 +207,7 @@ jobs:
           # Run extended checks if available
           if [ -f "extended_cis.py" ]; then
             echo "### Extended CIS Compliance Check"
-            python3 extended_cis.py --region $AWS_DEFAULT_REGION --environment ${{ github.event.inputs.environment }} --output ../test_results_extended.json
+            python3 extended_cis.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_extended.json
           fi
           
           # Run unified checks if available
