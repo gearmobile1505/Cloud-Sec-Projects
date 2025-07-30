@@ -156,6 +156,14 @@ jobs:
           name: terraform-outputs-${{ github.run_number }}
           path: cis-benchmark-checker/tf/terraform_outputs.json
           retention-days: 30
+      
+      - name: Upload Terraform State
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/terraform.tfstate*
+          retention-days: 30
 
   run-compliance-tests:
     name: Run Compliance Tests
