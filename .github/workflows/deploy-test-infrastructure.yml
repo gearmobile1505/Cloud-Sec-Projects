@@ -213,7 +213,7 @@ jobs:
           # Run unified checks if available
           if [ -f "unified_cis_checker.py" ]; then
             echo "### Unified CIS Compliance Check"
-            python3 unified_cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_unified.json
+            python3 unified_cis_checker.py --region $AWS_DEFAULT_REGION --format json --output ../test_results_unified.json aws check
           fi
           
           echo "All compliance tests completed"
