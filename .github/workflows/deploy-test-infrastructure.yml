@@ -25,10 +25,20 @@ on:
         required: false
         default: true
         type: boolean
+  
+  # Uncomment below to auto-deploy on infrastructure changes
+  # push:
+  #   branches: [ main ]
+  #   paths:
+  #     - 'cis-benchmark-checker/terraform/**'
+  #     - '.github/workflows/deploy-test-infrastructure.yml'
 
 env:
   AWS_DEFAULT_REGION: us-east-1
   TF_VERSION: '1.5.0'
+  # Global AWS credentials for all jobs
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
 jobs:
   deploy-infrastructure:
@@ -53,13 +63,6 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
       
       - name: Create terraform.tfvars
         run: |
@@ -178,12 +181,6 @@ jobs:
         run: |
           cd cis-benchmark-checker
           pip install -r scripts/requirements.txt
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
       
       - name: Download Terraform Outputs
         if: github.event.inputs.action == 'deploy'
@@ -307,12 +304,6 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
       
       - name: Download Terraform Plan (if exists)
         if: github.event.inputs.action != 'destroy'
