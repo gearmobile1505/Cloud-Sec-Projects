@@ -43,11 +43,11 @@ def main():
     # Import and run appropriate checker
     if args.platform == "aws":
         try:
-            from cis_checker import CISChecker
+            from cis_checker import CISBenchmarkChecker
             
-            checker = CISChecker(
-                profile_name=args.profile,
-                region_name=args.region
+            checker = CISBenchmarkChecker(
+                profile=args.profile,
+                region=args.region
             )
             
             if args.command == "list":
