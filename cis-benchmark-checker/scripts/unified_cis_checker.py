@@ -51,9 +51,12 @@ def main():
             )
             
             if args.command == "list":
-                controls = checker.get_supported_controls()
-                for control in controls:
-                    print(f"{control.control_id}: {control.title} ({control.severity})")
+                print("Available CIS Controls:")
+                print("=" * 50)
+                for control_id, control in checker.cis_controls.items():
+                    print(f"{control_id}: {control.title}")
+                    print(f"  Service: {control.service}")
+                    print(f"  Severity: {control.severity}")
                 return
             
             elif args.command == "check":
@@ -61,7 +64,7 @@ def main():
                 if args.controls:
                     control_ids = [c.strip() for c in args.controls.split(",")]
                 
-                results = checker.run_compliance_check(control_ids)
+                results = checker.run_check(control_ids)
                 report = checker.generate_report(results, args.format)
                 
                 if args.output:
@@ -74,6 +77,9 @@ def main():
         except ImportError as e:
             logger.error(f"AWS checker not available: {e}")
             sys.exit(1)
+        except Exception as e:
+            logger.error(f"AWS checker failed: {e}")
+            sys.exit(1)
     
     elif args.platform in ["k8s", "kubernetes"]:
         try:
@@ -85,9 +91,17 @@ def main():
             )
             
             if args.command == "list":
-                controls = checker.get_supported_controls()
-                for control in controls:
-                    print(f"{control.control_id}: {control.title} ({control.severity})")
+                # Assuming KubernetesCISChecker has similar structure
+                print("Available Kubernetes CIS Controls:")
+                print("=" * 50)
+                # This might need adjustment based on actual k8s checker implementation
+                if hasattr(checker, 'cis_controls'):
+                    for control_id, control in checker.cis_controls.items():
+                        print(f"{control_id}: {control.title}")
+                        print(f"  Service: {control.service}")
+                        print(f"  Severity: {control.severity}")
+                else:
+                    print("Control listing not available for Kubernetes checker")
                 return
             
             elif args.command == "check":
@@ -95,7 +109,15 @@ def main():
                 if args.controls:
                     control_ids = [c.strip() for c in args.controls.split(",")]
                 
-                results = checker.run_compliance_check(control_ids)
+                # Use the correct method name based on k8s checker implementation
+                if hasattr(checker, 'run_check'):
+                    results = checker.run_check(control_ids)
+                elif hasattr(checker, 'run_compliance_check'):
+                    results = checker.run_compliance_check(control_ids)
+                else:
+                    logger.error("No suitable check method found in Kubernetes checker")
+                    sys.exit(1)
+                
                 report = checker.generate_report(results, args.format)
                 
                 if args.output:
@@ -110,8 +132,12 @@ def main():
             logger.error("Make sure kubernetes python client is installed: pip install kubernetes")
             sys.exit(1)
         except Exception as e:
-            logger.error(f"Error connecting to Kubernetes cluster: {e}")
+            logger.error(f"Error with Kubernetes checker: {e}")
             sys.exit(1)
+    
+    else:
+        logger.error(f"Unsupported platform: {args.platform}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
