@@ -202,16 +202,18 @@ jobs:
           
           # Run AWS CIS checks
           echo "### AWS CIS Compliance Check"
-          python3 cis_checker.py check --profile ${{ github.event.inputs.environment }} --output json > ../test_results_aws.json
+          python3 cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_aws.json
           
-          # Run extended checks
-          echo "### Extended CIS Compliance Check"
-          python3 extended_cis.py --environment ${{ github.event.inputs.environment }} --output json > ../test_results_extended.json
+          # Run extended checks if available
+          if [ -f "extended_cis.py" ]; then
+            echo "### Extended CIS Compliance Check"
+            python3 extended_cis.py --region $AWS_DEFAULT_REGION --environment ${{ github.event.inputs.environment }} --output ../test_results_extended.json
+          fi
           
           # Run unified checks if available
           if [ -f "unified_cis_checker.py" ]; then
             echo "### Unified CIS Compliance Check"
-            python3 unified_cis_checker.py --profile ${{ github.event.inputs.environment }} > ../test_results_unified.json
+            python3 unified_cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_unified.json
           fi
           
           echo "All compliance tests completed"
@@ -246,29 +248,33 @@ jobs:
           
           # Process AWS results
           if [ -f "test_results_aws.json" ]; then
-            TOTAL_AWS=$(jq '.summary.total_checks' test_results_aws.json)
-            FAILED_AWS=$(jq '.summary.failed_checks' test_results_aws.json)
+            TOTAL_AWS=$(jq '.report_metadata.total_checks' test_results_aws.json)
+            FAILED_AWS=$(jq '.summary.non_compliant' test_results_aws.json)
+            COMPLIANT_AWS=$(jq '.summary.compliant' test_results_aws.json)
             
             echo "### 🛡️ AWS CIS Results" >> $GITHUB_STEP_SUMMARY
             echo "- **Total Checks:** $TOTAL_AWS" >> $GITHUB_STEP_SUMMARY
-            echo "- **Failed Checks:** $FAILED_AWS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Compliant:** ✅ $COMPLIANT_AWS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Non-Compliant:** ❌ $FAILED_AWS" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             
             if [ "$FAILED_AWS" -gt 0 ]; then
               echo "**Failed AWS Checks:**" >> $GITHUB_STEP_SUMMARY
-              jq -r '.failed_checks[] | "- \(.control_id): \(.description)"' test_results_aws.json >> $GITHUB_STEP_SUMMARY
+              jq -r '.results[] | select(.status == "NON_COMPLIANT") | "- **\(.control_id):** \(.reason)"' test_results_aws.json >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
             fi
           fi
           
           # Process K8s results
           if [ -f "test_results_k8s.json" ]; then
-            TOTAL_K8S=$(jq '.summary.total_checks' test_results_k8s.json)
-            FAILED_K8S=$(jq '.summary.failed_checks' test_results_k8s.json)
+            TOTAL_K8S=$(jq '.report_metadata.total_checks' test_results_k8s.json)
+            FAILED_K8S=$(jq '.summary.non_compliant' test_results_k8s.json)
+            COMPLIANT_K8S=$(jq '.summary.compliant' test_results_k8s.json)
             
             echo "### ☸️ Kubernetes CIS Results" >> $GITHUB_STEP_SUMMARY
             echo "- **Total Checks:** $TOTAL_K8S" >> $GITHUB_STEP_SUMMARY
-            echo "- **Failed Checks:** $FAILED_K8S" >> $GITHUB_STEP_SUMMARY
+            echo "- **Compliant:** ✅ $COMPLIANT_K8S" >> $GITHUB_STEP_SUMMARY
+            echo "- **Non-Compliant:** ❌ $FAILED_K8S" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
       
