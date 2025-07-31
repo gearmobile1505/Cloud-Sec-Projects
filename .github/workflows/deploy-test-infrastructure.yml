@@ -68,7 +68,7 @@ jobs:
         run: |
           cat > terraform.tfvars << EOF
           environment = "${{ github.event.inputs.environment }}"
-          prefix = "cis-${{ github.event.inputs.environment }}-${{ github.run_number }}"
+          project_name = "cis-${{ github.event.inputs.environment }}-${{ github.run_number }}"
           create_non_compliant_resources = ${{ github.event.inputs.create_non_compliant }}
           enable_flow_logs = true
           enable_config = true
@@ -223,6 +223,30 @@ jobs:
           fi
           
           echo "All compliance tests completed"
+      
+      - name: Deploy Kubernetes Test Manifests
+        if: success()
+        run: |
+          cd cis-benchmark-checker/tf
+          
+          # Configure kubectl
+          CLUSTER_NAME="cis-${{ github.event.inputs.environment }}-${{ github.run_number }}-eks-cluster"
+          aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME || echo "EKS cluster not found or not ready"
+          
+          # Deploy test manifests if cluster is available
+          if kubectl cluster-info &>/dev/null; then
+            echo "### Deploying Kubernetes Test Workloads"
+            chmod +x k8s-deploy.sh
+            ./k8s-deploy.sh deploy
+            
+            # Wait for workloads to be ready
+            echo "Waiting for test workloads to be ready..."
+            kubectl wait --for=condition=Ready pod --all --timeout=300s || echo "Some pods may not be ready"
+            
+            echo "### Test workloads deployed successfully"
+          else
+            echo "Kubernetes cluster not available for manifest deployment"
+          fi
       
       - name: Run Kubernetes Tests
         if: success()
