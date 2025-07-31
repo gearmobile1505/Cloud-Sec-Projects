@@ -124,8 +124,18 @@ VPC_IDS=$(aws ec2 describe-vpcs --region $REGION --query "Vpcs[?Tags[?Key=='Name
 for vpc_id in $VPC_IDS; do
     echo "🗑️  Cleaning up VPC: $vpc_id"
     
+    # Release Elastic IPs first
+    echo "   Releasing Elastic IPs..."
+    aws ec2 describe-addresses --region $REGION --filters "Name=domain,Values=vpc" --query "Addresses[?AssociationId].AllocationId" --output text | while read alloc_id; do
+        if [ ! -z "$alloc_id" ]; then
+            echo "   Releasing EIP: $alloc_id"
+            aws ec2 release-address --allocation-id "$alloc_id" --region $REGION || true
+        fi
+    done
+    
     # Delete NAT Gateways first
-    aws ec2 describe-nat-gateways --region $REGION --filter "Name=vpc-id,Values=$vpc_id" --query 'NatGateways[].NatGatewayId' --output text | while read nat_id; do
+    echo "   Deleting NAT Gateways..."
+    aws ec2 describe-nat-gateways --region $REGION --filter "Name=vpc-id,Values=$vpc_id" --query 'NatGateways[?State==`available`].NatGatewayId' --output text | while read nat_id; do
         if [ ! -z "$nat_id" ]; then
             echo "   Deleting NAT Gateway: $nat_id"
             aws ec2 delete-nat-gateway --nat-gateway-id "$nat_id" --region $REGION || true
@@ -133,26 +143,53 @@ for vpc_id in $VPC_IDS; do
     done
     
     # Wait for NAT Gateways to delete
+    echo "   Waiting for NAT Gateways to delete..."
     sleep 60
     
-    # Delete subnets
-    aws ec2 describe-subnets --region $REGION --filters "Name=vpc-id,Values=$vpc_id" --query 'Subnets[].SubnetId' --output text | while read subnet_id; do
+    # Delete Load Balancers in this VPC
+    echo "   Deleting Load Balancers in VPC..."
+    aws elbv2 describe-load-balancers --region $REGION --query "LoadBalancers[?VpcId=='$vpc_id'].LoadBalancerArn" --output text | while read lb_arn; do
+        if [ ! -z "$lb_arn" ]; then
+            echo "   Deleting Load Balancer: $lb_arn"
+            aws elbv2 delete-load-balancer --load-balancer-arn "$lb_arn" --region $REGION || true
+        fi
+    done
+    
+    # Wait for Load Balancers to delete
+    sleep 30
+    
+    # Delete Network Interfaces
+    echo "   Deleting Network Interfaces..."
+    aws ec2 describe-network-interfaces --region $REGION --filters "Name=vpc-id,Values=$vpc_id" --query 'NetworkInterfaces[?Status==`available`].NetworkInterfaceId' --output text | while read eni_id; do
+        if [ ! -z "$eni_id" ]; then
+            echo "   Deleting ENI: $eni_id"
+            aws ec2 delete-network-interface --network-interface-id "$eni_id" --region $REGION || true
+        fi
+    done
+    
+    # Delete subnets (fix the subnet ID parsing)
+    echo "   Deleting subnets..."
+    aws ec2 describe-subnets --region $REGION --filters "Name=vpc-id,Values=$vpc_id" --query 'Subnets[].SubnetId' --output text | tr '\t' '\n' | while read subnet_id; do
         if [ ! -z "$subnet_id" ]; then
             echo "   Deleting subnet: $subnet_id"
             aws ec2 delete-subnet --subnet-id "$subnet_id" --region $REGION || true
         fi
     done
     
-    # Delete internet gateway
+    # Delete internet gateway (after releasing EIPs)
+    echo "   Detaching and deleting Internet Gateway..."
     aws ec2 describe-internet-gateways --region $REGION --filters "Name=attachment.vpc-id,Values=$vpc_id" --query 'InternetGateways[].InternetGatewayId' --output text | while read igw_id; do
         if [ ! -z "$igw_id" ]; then
-            echo "   Detaching and deleting IGW: $igw_id"
+            echo "   Detaching IGW: $igw_id"
             aws ec2 detach-internet-gateway --internet-gateway-id "$igw_id" --vpc-id "$vpc_id" --region $REGION || true
+            sleep 10
+            echo "   Deleting IGW: $igw_id"
             aws ec2 delete-internet-gateway --internet-gateway-id "$igw_id" --region $REGION || true
         fi
     done
     
     # Delete route tables (except main)
+    echo "   Deleting route tables..."
     aws ec2 describe-route-tables --region $REGION --filters "Name=vpc-id,Values=$vpc_id" --query 'RouteTables[?Associations[0].Main != `true`].RouteTableId' --output text | while read rt_id; do
         if [ ! -z "$rt_id" ]; then
             echo "   Deleting route table: $rt_id"
@@ -160,14 +197,31 @@ for vpc_id in $VPC_IDS; do
         fi
     done
     
-    # Finally delete VPC
+    # Delete Security Groups (after everything else)
+    echo "   Deleting Security Groups in VPC..."
+    aws ec2 describe-security-groups --region $REGION --filters "Name=vpc-id,Values=$vpc_id" --query "SecurityGroups[?GroupName != 'default'].GroupId" --output text | while read sg_id; do
+        if [ ! -z "$sg_id" ]; then
+            echo "   Deleting Security Group: $sg_id"
+            for i in {1..5}; do
+                if aws ec2 delete-security-group --group-id "$sg_id" --region $REGION 2>/dev/null; then
+                    echo "     ✅ Deleted SG: $sg_id"
+                    break
+                else
+                    echo "     ⏳ Retry $i/5 for SG: $sg_id"
+                    sleep 20
+                fi
+            done
+        fi
+    done
+    
+    # Finally delete VPC (with retries)
     echo "   Deleting VPC: $vpc_id"
-    for i in {1..5}; do
+    for i in {1..10}; do
         if aws ec2 delete-vpc --vpc-id "$vpc_id" --region $REGION 2>/dev/null; then
             echo "   ✅ Deleted VPC: $vpc_id"
             break
         else
-            echo "   ⏳ Retry $i/5 for VPC: $vpc_id"
+            echo "   ⏳ Retry $i/10 for VPC: $vpc_id (waiting for dependencies...)"
             sleep 30
         fi
     done
