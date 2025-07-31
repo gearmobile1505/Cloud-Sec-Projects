@@ -119,19 +119,6 @@ jobs:
           terraform apply -auto-approve tfplan
           echo "::notice::Infrastructure deployed successfully"
       
-      - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan-${{ github.run_number }}
-          path: cis-benchmark-checker/tf/tfplan
-          retention-days: 7
-      
-      - name: Terraform Apply
-        id: apply
-        run: |
-          terraform apply -auto-approve tfplan
-          echo "::notice::Infrastructure deployed successfully"
-      
       - name: Save Terraform Outputs
         if: success()
         run: |
