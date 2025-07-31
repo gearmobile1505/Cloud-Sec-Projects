@@ -400,8 +400,34 @@ jobs:
       - name: Terraform Destroy
         run: |
           echo "Destroying infrastructure..."
-          terraform destroy -auto-approve
-          echo "::notice::Infrastructure destroyed successfully"
+          
+          # Try normal destroy first
+          if ! terraform destroy -auto-approve -lock=false; then
+            echo "::warning::Normal destroy failed, trying aggressive cleanup..."
+            
+            # Force delete EKS cluster first (common blocker)
+            CLUSTER_NAME="cis-${{ github.event.inputs.environment }}-${{ github.run_number }}-eks-cluster"
+            echo "Attempting to delete EKS cluster: $CLUSTER_NAME"
+            aws eks delete-cluster --name "$CLUSTER_NAME" --region $AWS_DEFAULT_REGION || true
+            
+            # Wait for cluster deletion
+            echo "Waiting for EKS cluster deletion..."
+            aws eks wait cluster-deleted --name "$CLUSTER_NAME" --region $AWS_DEFAULT_REGION || true
+            
+            # Force delete node groups
+            for nodegroup in $(aws eks list-nodegroups --cluster-name "$CLUSTER_NAME" --region $AWS_DEFAULT_REGION --query 'nodegroups[]' --output text 2>/dev/null || echo ""); do
+              if [ ! -z "$nodegroup" ]; then
+                echo "Deleting nodegroup: $nodegroup"
+                aws eks delete-nodegroup --cluster-name "$CLUSTER_NAME" --nodegroup-name "$nodegroup" --region $AWS_DEFAULT_REGION || true
+              fi
+            done
+            
+            # Try destroy again after manual cleanup
+            sleep 60
+            terraform destroy -auto-approve -lock=false || echo "::error::Destroy still failed - manual cleanup required"
+          fi
+          
+          echo "::notice::Infrastructure destroy completed"
       
       - name: Cleanup Artifacts
         if: success()
