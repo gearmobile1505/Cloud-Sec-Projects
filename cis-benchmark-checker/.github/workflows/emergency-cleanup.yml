@@ -1,0 +1,195 @@
+name: Emergency Resource Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to clean up'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+      run_number:
+        description: 'Run number to clean up (optional - will clean all if empty)'
+        required: false
+        type: string
+      force_delete:
+        description: 'Force delete all resources (dangerous!)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+jobs:
+  emergency-cleanup:
+    name: Emergency Resource Cleanup
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup AWS CLI
+        run: |
+          aws --version
+          aws sts get-caller-identity
+      
+      - name: Delete EKS Clusters
+        run: |
+          echo "🔍 Finding EKS clusters to delete..."
+          
+          if [ -n "${{ github.event.inputs.run_number }}" ]; then
+            PATTERN="cis-${{ github.event.inputs.environment }}-${{ github.event.inputs.run_number }}"
+          else
+            PATTERN="cis-${{ github.event.inputs.environment }}"
+          fi
+          
+          # List matching clusters
+          CLUSTERS=$(aws eks list-clusters --region $AWS_DEFAULT_REGION --query "clusters[?contains(@, '$PATTERN')]" --output text)
+          
+          for cluster in $CLUSTERS; do
+            echo "🗑️ Deleting EKS cluster: $cluster"
+            
+            # Delete all nodegroups first
+            NODEGROUPS=$(aws eks list-nodegroups --cluster-name "$cluster" --region $AWS_DEFAULT_REGION --query 'nodegroups[]' --output text 2>/dev/null || echo "")
+            for nodegroup in $NODEGROUPS; do
+              echo "  Deleting nodegroup: $nodegroup"
+              aws eks delete-nodegroup --cluster-name "$cluster" --nodegroup-name "$nodegroup" --region $AWS_DEFAULT_REGION || true
+            done
+            
+            # Wait for nodegroups to delete
+            echo "  Waiting for nodegroups to delete..."
+            sleep 30
+            
+            # Delete cluster
+            aws eks delete-cluster --name "$cluster" --region $AWS_DEFAULT_REGION || true
+            echo "  Cluster deletion initiated: $cluster"
+          done
+      
+      - name: Delete Load Balancers
+        run: |
+          echo "🔍 Cleaning up Load Balancers..."
+          
+          if [ -n "${{ github.event.inputs.run_number }}" ]; then
+            PATTERN="cis-${{ github.event.inputs.environment }}-${{ github.run_number }}"
+          else
+            PATTERN="cis-${{ github.event.inputs.environment }}"
+          fi
+          
+          # Delete ALBs/NLBs
+          aws elbv2 describe-load-balancers --region $AWS_DEFAULT_REGION --query "LoadBalancers[?contains(LoadBalancerName, '$PATTERN')].LoadBalancerArn" --output text | while read lb_arn; do
+            if [ ! -z "$lb_arn" ]; then
+              echo "🗑️ Deleting Load Balancer: $lb_arn"
+              aws elbv2 delete-load-balancer --load-balancer-arn "$lb_arn" --region $AWS_DEFAULT_REGION || true
+            fi
+          done
+          
+          # Delete Classic ELBs
+          aws elb describe-load-balancers --region $AWS_DEFAULT_REGION --query "LoadBalancerDescriptions[?contains(LoadBalancerName, '$PATTERN')].LoadBalancerName" --output text | while read lb_name; do
+            if [ ! -z "$lb_name" ]; then
+              echo "🗑️ Deleting Classic ELB: $lb_name"
+              aws elb delete-load-balancer --load-balancer-name "$lb_name" --region $AWS_DEFAULT_REGION || true
+            fi
+          done
+      
+      - name: Delete Security Groups
+        run: |
+          echo "🔍 Cleaning up Security Groups..."
+          
+          if [ -n "${{ github.event.inputs.run_number }}" ]; then
+            PATTERN="cis-${{ github.event.inputs.environment }}-${{ github.run_number }}"
+          else
+            PATTERN="cis-${{ github.event.inputs.environment }}"
+          fi
+          
+          # Get security groups (excluding default)
+          aws ec2 describe-security-groups --region $AWS_DEFAULT_REGION --query "SecurityGroups[?contains(GroupName, '$PATTERN') && GroupName != 'default'].GroupId" --output text | while read sg_id; do
+            if [ ! -z "$sg_id" ]; then
+              echo "🗑️ Deleting Security Group: $sg_id"
+              aws ec2 delete-security-group --group-id "$sg_id" --region $AWS_DEFAULT_REGION || true
+            fi
+          done
+      
+      - name: Delete VPCs and Subnets
+        run: |
+          echo "🔍 Cleaning up VPCs and Subnets..."
+          
+          if [ -n "${{ github.event.inputs.run_number }}" ]; then
+            PATTERN="cis-${{ github.event.inputs.environment }}-${{ github.run_number }}"
+          else
+            PATTERN="cis-${{ github.event.inputs.environment }}"
+          fi
+          
+          # Find VPCs by tag
+          VPC_IDS=$(aws ec2 describe-vpcs --region $AWS_DEFAULT_REGION --query "Vpcs[?Tags[?Key=='Name' && contains(Value, '$PATTERN')]].VpcId" --output text)
+          
+          for vpc_id in $VPC_IDS; do
+            echo "🗑️ Cleaning up VPC: $vpc_id"
+            
+            # Delete subnets
+            aws ec2 describe-subnets --region $AWS_DEFAULT_REGION --filters "Name=vpc-id,Values=$vpc_id" --query 'Subnets[].SubnetId' --output text | while read subnet_id; do
+              echo "  Deleting subnet: $subnet_id"
+              aws ec2 delete-subnet --subnet-id "$subnet_id" --region $AWS_DEFAULT_REGION || true
+            done
+            
+            # Delete internet gateway
+            aws ec2 describe-internet-gateways --region $AWS_DEFAULT_REGION --filters "Name=attachment.vpc-id,Values=$vpc_id" --query 'InternetGateways[].InternetGatewayId' --output text | while read igw_id; do
+              echo "  Detaching and deleting IGW: $igw_id"
+              aws ec2 detach-internet-gateway --internet-gateway-id "$igw_id" --vpc-id "$vpc_id" --region $AWS_DEFAULT_REGION || true
+              aws ec2 delete-internet-gateway --internet-gateway-id "$igw_id" --region $AWS_DEFAULT_REGION || true
+            done
+            
+            # Delete route tables (except main)
+            aws ec2 describe-route-tables --region $AWS_DEFAULT_REGION --filters "Name=vpc-id,Values=$vpc_id" --query 'RouteTables[?Associations[0].Main != `true`].RouteTableId' --output text | while read rt_id; do
+              echo "  Deleting route table: $rt_id"
+              aws ec2 delete-route-table --route-table-id "$rt_id" --region $AWS_DEFAULT_REGION || true
+            done
+            
+            # Delete VPC
+            echo "  Deleting VPC: $vpc_id"
+            aws ec2 delete-vpc --vpc-id "$vpc_id" --region $AWS_DEFAULT_REGION || true
+          done
+      
+      - name: Delete IAM Roles
+        if: github.event.inputs.force_delete == 'true'
+        run: |
+          echo "🔍 Cleaning up IAM Roles (DANGEROUS!)..."
+          
+          if [ -n "${{ github.event.inputs.run_number }}" ]; then
+            PATTERN="cis-${{ github.event.inputs.environment }}-${{ github.run_number }}"
+          else
+            PATTERN="cis-${{ github.event.inputs.environment }}"
+          fi
+          
+          # List and delete matching IAM roles
+          aws iam list-roles --query "Roles[?contains(RoleName, '$PATTERN')].RoleName" --output text | while read role_name; do
+            if [ ! -z "$role_name" ]; then
+              echo "🗑️ Deleting IAM Role: $role_name"
+              
+              # Detach policies first
+              aws iam list-attached-role-policies --role-name "$role_name" --query 'AttachedPolicies[].PolicyArn' --output text | while read policy_arn; do
+                aws iam detach-role-policy --role-name "$role_name" --policy-arn "$policy_arn" || true
+              done
+              
+              # Delete role
+              aws iam delete-role --role-name "$role_name" || true
+            fi
+          done
+      
+      - name: Summary
+        run: |
+          echo "## 🧹 Emergency Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run Number:** ${{ github.event.inputs.run_number || 'ALL' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Force Delete:** ${{ github.event.inputs.force_delete }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Cleanup Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note:** Some resources may take time to fully delete." >> $GITHUB_STEP_SUMMARY
+          echo "Check AWS Console to verify all resources are removed." >> $GITHUB_STEP_SUMMARY

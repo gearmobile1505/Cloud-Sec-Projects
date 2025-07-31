@@ -91,7 +91,7 @@ jobs:
       - name: Terraform Init
         id: init
         run: |
-          terraform init
+          terraform init -upgrade
           echo "::notice::Terraform initialized successfully"
       
       - name: Terraform Validate
@@ -116,9 +116,34 @@ jobs:
       - name: Terraform Apply
         id: apply
         run: |
-          terraform apply -auto-approve tfplan
-          echo "::notice::Infrastructure deployed successfully"
+          echo "Starting Terraform apply..."
+          
+          # Retry logic for common AWS issues
+          for i in {1..3}; do
+            echo "Attempt $i of 3..."
+            if terraform apply -auto-approve tfplan 2>&1 | tee apply.log; then
+              echo "::notice::Infrastructure deployed successfully"
+              break
+            else
+              if [ $i -eq 3 ]; then
+                echo "::error::Terraform apply failed after 3 attempts"
+                echo "Apply log:"
+                cat apply.log
+                exit 1
+              fi
+              echo "::warning::Attempt $i failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
       
+      - name: Upload Apply Logs on Failure
+        if: failure() && steps.apply.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-apply-logs-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/apply.log
+          retention-days: 7
+
       - name: Save Terraform Outputs
         if: success()
         run: |
@@ -200,30 +225,6 @@ jobs:
           echo "Waiting 2 minutes for infrastructure to stabilize..."
           sleep 120
       
-      - name: Run Full CIS Compliance Test Suite
-        run: |
-          cd cis-benchmark-checker/scripts
-          
-          echo "Running comprehensive CIS compliance tests..."
-          
-          # Run AWS CIS checks
-          echo "### AWS CIS Compliance Check"
-          python3 cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_aws.json
-          
-          # Run extended checks if available
-          if [ -f "extended_cis.py" ]; then
-            echo "### Extended CIS Compliance Check"
-            python3 extended_cis.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_extended.json
-          fi
-          
-          # Run unified checks if available
-          if [ -f "unified_cis_checker.py" ]; then
-            echo "### Unified CIS Compliance Check"
-            python3 unified_cis_checker.py aws check --region $AWS_DEFAULT_REGION --format json --output ../test_results_unified.json
-          fi
-          
-          echo "All compliance tests completed"
-      
       - name: Deploy Kubernetes Test Manifests
         if: success()
         run: |
@@ -248,6 +249,30 @@ jobs:
             echo "Kubernetes cluster not available for manifest deployment"
           fi
       
+      - name: Run Full CIS Compliance Test Suite
+        run: |
+          cd cis-benchmark-checker/scripts
+          
+          echo "Running comprehensive CIS compliance tests..."
+          
+          # Run AWS CIS checks
+          echo "### AWS CIS Compliance Check"
+          python3 cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_aws.json
+          
+          # Run extended checks if available
+          if [ -f "extended_cis.py" ]; then
+            echo "### Extended CIS Compliance Check"
+            python3 extended_cis.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_extended.json
+          fi
+          
+          # Run unified checks if available
+          if [ -f "unified_cis_checker.py" ]; then
+            echo "### Unified CIS Compliance Check"
+            python3 unified_cis_checker.py aws check --region $AWS_DEFAULT_REGION --format json --output ../test_results_unified.json
+          fi
+          
+          echo "All compliance tests completed"
+      
       - name: Run Kubernetes Tests
         if: success()
         run: |
@@ -260,7 +285,7 @@ jobs:
           # Run K8s tests if cluster is available
           if kubectl cluster-info &>/dev/null; then
             echo "### Kubernetes CIS Compliance Check"
-            python3 k8s_cis_checker.py --output json > ../test_results_k8s.json
+            python3 k8s_cis_checker.py check --format json --output ../test_results_k8s.json
           else
             echo "Kubernetes cluster not available for testing"
           fi
@@ -375,8 +400,34 @@ jobs:
       - name: Terraform Destroy
         run: |
           echo "Destroying infrastructure..."
-          terraform destroy -auto-approve
-          echo "::notice::Infrastructure destroyed successfully"
+          
+          # Try normal destroy first
+          if ! terraform destroy -auto-approve -lock=false; then
+            echo "::warning::Normal destroy failed, trying aggressive cleanup..."
+            
+            # Force delete EKS cluster first (common blocker)
+            CLUSTER_NAME="cis-${{ github.event.inputs.environment }}-${{ github.run_number }}-eks-cluster"
+            echo "Attempting to delete EKS cluster: $CLUSTER_NAME"
+            aws eks delete-cluster --name "$CLUSTER_NAME" --region $AWS_DEFAULT_REGION || true
+            
+            # Wait for cluster deletion
+            echo "Waiting for EKS cluster deletion..."
+            aws eks wait cluster-deleted --name "$CLUSTER_NAME" --region $AWS_DEFAULT_REGION || true
+            
+            # Force delete node groups
+            for nodegroup in $(aws eks list-nodegroups --cluster-name "$CLUSTER_NAME" --region $AWS_DEFAULT_REGION --query 'nodegroups[]' --output text 2>/dev/null || echo ""); do
+              if [ ! -z "$nodegroup" ]; then
+                echo "Deleting nodegroup: $nodegroup"
+                aws eks delete-nodegroup --cluster-name "$CLUSTER_NAME" --nodegroup-name "$nodegroup" --region $AWS_DEFAULT_REGION || true
+              fi
+            done
+            
+            # Try destroy again after manual cleanup
+            sleep 60
+            terraform destroy -auto-approve -lock=false || echo "::error::Destroy still failed - manual cleanup required"
+          fi
+          
+          echo "::notice::Infrastructure destroy completed"
       
       - name: Cleanup Artifacts
         if: success()
