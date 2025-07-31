@@ -103,9 +103,8 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
-          terraform plan -out=tfplan -detailed-exitcode
-          echo "plan_exitcode=$?" >> $GITHUB_OUTPUT
-        continue-on-error: true
+          terraform plan -out=tfplan
+          echo "::notice::Terraform plan completed"
       
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
@@ -115,7 +114,19 @@ jobs:
           retention-days: 7
       
       - name: Terraform Apply
-        if: steps.plan.outputs.plan_exitcode == 2
+        id: apply
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "::notice::Infrastructure deployed successfully"
+      
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/tfplan
+          retention-days: 7
+      
+      - name: Terraform Apply
         id: apply
         run: |
           terraform apply -auto-approve tfplan
