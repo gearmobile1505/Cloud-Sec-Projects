@@ -91,7 +91,7 @@ jobs:
       - name: Terraform Init
         id: init
         run: |
-          terraform init
+          terraform init -upgrade
           echo "::notice::Terraform initialized successfully"
       
       - name: Terraform Validate
@@ -116,9 +116,34 @@ jobs:
       - name: Terraform Apply
         id: apply
         run: |
-          terraform apply -auto-approve tfplan
-          echo "::notice::Infrastructure deployed successfully"
+          echo "Starting Terraform apply..."
+          
+          # Retry logic for common AWS issues
+          for i in {1..3}; do
+            echo "Attempt $i of 3..."
+            if terraform apply -auto-approve tfplan 2>&1 | tee apply.log; then
+              echo "::notice::Infrastructure deployed successfully"
+              break
+            else
+              if [ $i -eq 3 ]; then
+                echo "::error::Terraform apply failed after 3 attempts"
+                echo "Apply log:"
+                cat apply.log
+                exit 1
+              fi
+              echo "::warning::Attempt $i failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
       
+      - name: Upload Apply Logs on Failure
+        if: failure() && steps.apply.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-apply-logs-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/apply.log
+          retention-days: 7
+
       - name: Save Terraform Outputs
         if: success()
         run: |
