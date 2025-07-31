@@ -1,16 +1,5 @@
 # Outputs for CIS Benchmark Test Infrastructure
 
-# DynamoDB for Terraform Backend
-output "terraform_locks_table_name" {
-  description = "Name of the DynamoDB table for Terraform state locking"
-  value       = aws_dynamodb_table.terraform_locks.name
-}
-
-output "terraform_locks_table_arn" {
-  description = "ARN of the DynamoDB table for Terraform state locking"
-  value       = aws_dynamodb_table.terraform_locks.arn
-}
-
 # VPC Information
 output "vpc_id" {
   description = "ID of the VPC"
@@ -94,17 +83,6 @@ output "old_key_user_name" {
 output "test_role_arn" {
   description = "ARN of the test IAM role"
   value       = aws_iam_role.test_role.arn
-}
-
-# S3 Information
-output "test_bucket_name" {
-  description = "Name of the test S3 bucket"
-  value       = aws_s3_bucket.test_bucket.bucket
-}
-
-output "public_bucket_name" {
-  description = "Name of the public S3 bucket (if created)"
-  value       = var.create_non_compliant_resources ? aws_s3_bucket.public_bucket[0].bucket : null
 }
 
 # Config Information (Disabled for cleanup)

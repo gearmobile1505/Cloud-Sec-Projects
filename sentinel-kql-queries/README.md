@@ -1,53 +1,47 @@
 # Microsoft Sentinel KQL Query Library
 
-A comprehensive collection of KQL (Kusto Query Language) queries for Microsoft Sentinel security monitoring, threat hunting, and incident response.
+Production-ready KQL queries for Microsoft Sentinel security monitoring and threat hunting.
 
-## 📋 Overview
+## � Query Categories
 
-This repository contains production-ready KQL queries designed for security operations teams using Microsoft Sentinel. Each query includes detailed metadata, MITRE ATT&CK mappings, and deployment guidance.
-
-## 🗂️ Repository Structure
-
-```
-sentinel-kql-queries/
-├── queries/
-│   ├── azure-ad/              # Azure Active Directory queries
-│   │   └── privilege-escalation.kql
-│   ├── network/               # Network security queries
-│   ├── endpoint/              # Endpoint detection queries
-│   └── cloud/                 # Cloud security queries
-├── playbooks/                 # Logic Apps automation
-├── workbooks/                 # Custom workbooks
-└── docs/                      # Documentation
-```
+- **Azure AD Security** - Identity and access monitoring
+- **Network Security** - DNS tunneling, lateral movement detection  
+- **Endpoint Detection** - Suspicious process monitoring
+- **Cloud Security** - Multi-cloud threat hunting
 
 ## 🚀 Quick Start
 
-1. **Clone the repository**
+1. **Browse Queries**
+   - Navigate to `queries/` directory
+   - Each query includes MITRE ATT&CK mappings
+
+2. **Deploy to Sentinel**
    ```bash
-   git clone https://github.com/gearmobile1505/Cloud-Sec_Projects.git
-   cd sentinel-kql-queries
+   # Copy query to Sentinel Log Analytics
+   # Adjust time ranges and parameters
+   # Create analytics rules
    ```
 
-2. **Browse available queries**
-   - Navigate to the `queries/` directory
-   - Each query includes comprehensive metadata and documentation
+3. **Customize**
+   - Modify thresholds in queries
+   - Add custom data sources
+   - Create scheduled rules
 
-3. **Deploy to Sentinel**
-   - Copy queries to your Sentinel workspace
-   - Adjust time ranges and parameters as needed
-   - Create custom analytics rules or scheduled queries
+## 🔧 Usage
 
-## 📊 Featured Queries
+```kql
+// Example: Privilege escalation detection
+SecurityEvent
+| where TimeGenerated > ago(24h)
+| where EventID == 4728
+| project TimeGenerated, Account, TargetAccount, Computer
+```
 
-### Azure AD Security
-- **Privilege Escalation Detection** - Monitors suspicious role assignments to privileged Azure AD roles
-- **Suspicious Sign-ins** - Detects anomalous authentication patterns
-- **Account Manipulation** - Identifies unauthorized account modifications
+## 📋 Requirements
 
-### Network Security
-- **DNS Tunneling Detection** - Identifies potential data exfiltration via DNS
-- **Lateral Movement** - Detects suspicious network traversal patterns
+- Microsoft Sentinel workspace
+- Appropriate data connectors configured
+- Log Analytics contributor permissions
 - **Command & Control** - Monitors for C2 communication indicators
 
 ## 🎯 Query Metadata

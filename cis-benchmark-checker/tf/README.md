@@ -1,53 +1,56 @@
-# ✅ CIS Benchmark Test Infrastructure - SUCCESSFULLY DEPLOYED
+# CIS Benchmark Test Infrastructure
 
-This Terraform configuration creates AWS and Kubernetes resources specifically designed to test the CIS Benchmark Checker tool. **This configuration has been successfully deployed and tested!**
+Terraform configuration for AWS and EKS test infrastructure with intentional CIS compliance violations for testing.
 
-## 🏆 Deployment Status
+## 🚀 GitHub Actions Deployment
 
-✅ **EKS Cluster**: v1.31 with 2 worker nodes - ACTIVE  
-✅ **CIS Checker**: Verified working (detected 28/31 K8s issues)  
-✅ **AWS Resources**: Successfully deployed and tested  
-✅ **Security Groups**: IP-restricted access configured  
-✅ **VPC & Networking**: Complete with NAT Gateway  
+This infrastructure is automatically deployed via GitHub Actions workflow. No manual Terraform commands needed.
 
-## ⚠️ CRITICAL: Update IP Address Before Deployment
+1. **Fork the repository**
+2. **Add GitHub Secrets:**
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+3. **Run workflow:** "Deploy and Test CIS Infrastructure"
 
-**BEFORE running `terraform apply`, you MUST:**
+## �️ Infrastructure Deployed
 
-1. **Find your IP:** `curl ifconfig.me`
-2. **Edit `kubernetes.tf`** and replace ALL instances of:
-   ```terraform
-   cidr_blocks = ["YOUR_IP_ADDRESS/32"]  # Replace with your actual IP
-   ```
+### AWS Resources
+- **EKS Cluster** (v1.31) with worker nodes  
+- **VPC** with public/private subnets and NAT Gateway
+- **Security Groups** with intentional misconfigurations
+- **CloudTrail** with CloudWatch integration
+- **IAM Roles** for testing permissions
 
-## 🎯 Purpose
+### Kubernetes Resources  
+- Insecure workloads for CIS testing
+- RBAC configurations
+- Network policy violations
 
-This infrastructure provides:
-- **AWS compliant resources** to verify the tool correctly identifies good configurations
-- **AWS non-compliant resources** to verify the tool correctly identifies violations
-- **EKS cluster** for Kubernetes CIS testing (successfully tested)
-- **Security groups** with IP-restricted access for security
-- **Complete test environment** covering multiple CIS benchmark categories
+## 💰 Cost
 
-## 🏗️ Resources Created
+Approximately $0.50-1.00/hour while running. GitHub Actions automatically destroys infrastructure after testing.
 
-### VPC and Networking (CIS 5.x)
-- ✅ **VPC** with public and private subnets
-- ✅ **VPC Flow Logs** enabled (CIS 5.5)
-- ✅ **Default Security Group** with no rules (CIS 5.3)
-- ✅ **Compliant Security Groups** with restricted access
-- ❌ **Non-compliant Security Group** with SSH/RDP from 0.0.0.0/0 (CIS 5.2 violation)
+## 🔧 Manual Deployment
 
-### CloudTrail and Logging (CIS 3.x)
-- ✅ **CloudTrail** enabled in all regions (CIS 3.1)
-- ✅ **Log file validation** enabled (CIS 3.2)
-- ✅ **S3 bucket** not publicly accessible (CIS 3.3)
-- ✅ **CloudWatch integration** enabled (CIS 3.4)
-- ✅ **KMS encryption** with key rotation (CIS 3.7, 3.8)
+For custom deployments:
 
-### AWS Config (CIS 3.5)
-- ✅ **AWS Config** enabled with configuration recorder
-- ✅ **Config Rules** for CIS compliance checks
+```bash
+# Configure backend
+cp backend.tf.example backend.tf
+# Edit backend.tf with your S3 bucket
+
+# Deploy
+terraform init
+terraform plan
+terraform apply
+
+# Cleanup
+terraform destroy -auto-approve
+```
+
+## ⚠️ Security Note
+
+Contains intentionally vulnerable configurations for CIS compliance testing. Use only in isolated test environments.
 - ✅ **S3 delivery channel** for configuration history
 
 ### IAM (CIS 1.x)

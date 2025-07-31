@@ -1,103 +1,102 @@
-# CIS Benchmark Checker for AWS & Kubernetes
+# CIS Benchmark Checker
 
-## ⚠️ IMPORTANT: Update IP Addresses Before Deployment
+Automated CIS compliance testing for AWS and Kubernetes with GitHub Actions workflows and test infrastructure.
 
-**BEFORE deploying infrastructure, update `tf/kubernetes.tf`:**
-```bash
-# 1. Get your IP
-curl ifconfig.me
+## ✨ Features
 
-# 2. Edit tf/kubernetes.tf and replace ALL instances of:
-cidr_blocks = ["YOUR_IP_ADDRESS/32"]  # Replace with your actual IP
-
-# 3. Or run the setup helper:
-./setup.sh
-```
+- AWS CIS Benchmark checks (IAM, EC2, CloudTrail, etc.)
+- Kubernetes CIS Benchmark checks for EKS clusters
+- Automated test infrastructure deployment via Terraform
+- GitHub Actions workflows for CI/CD integration
+- JSON/HTML report generation
 
 ## 🚀 Quick Start
 
+### Method 1: GitHub Actions (Recommended)
+
+1. **Fork the repository**
+2. **Configure GitHub Secrets:**
+   ```
+   AWS_ACCESS_KEY_ID: Your AWS access key
+   AWS_SECRET_ACCESS_KEY: Your AWS secret key
+   ```
+3. **Run the workflow:**
+   - Go to Actions → "Deploy and Test CIS Infrastructure"
+   - Click "Run workflow"
+   - Infrastructure deploys, CIS checks run, reports generated
+
+### Method 2: Local Usage
+
 ```bash
-# 1. Clone and setup
-git clone <repository>
-cd cis-benchmark-checker/scripts
+# Install dependencies
 pip install -r requirements.txt
 
-# 2. Configure AWS credentials  
+# Configure AWS
 aws configure
 
-# 3. Test your setup
-python3 test_installation.py
-
-# 4. Run compliance checks
-python3 unified_cis_checker.py kubernetes check
-python3 cis_checker.py check --controls "1.3,1.4"
-
-# 5. Deploy test infrastructure (optional)
-cd ../tf && terraform init && terraform plan
-# Update YOUR_IP_ADDRESS in kubernetes.tf before applying!
-terraform apply
+# Run checks
+python3 cis_checker.py check --format json
+python3 k8s_cis_checker.py --cluster-name your-cluster-name
 ```
 
-## ⚠️ Important: Update IP Addresses
+## 🏗️ Test Infrastructure
 
-Before deploying infrastructure, update `tf/kubernetes.tf`:
-```terraform
-cidr_blocks = ["YOUR_IP_ADDRESS/32"]  # Replace with your actual IP
+The GitHub Actions workflow deploys:
+- EKS Cluster (v1.31) with worker nodes
+- VPC with public/private subnets
+- Security groups with intentional misconfigurations
+- IAM roles and policies for testing
+- Kubernetes manifests for CIS testing
+
+**Cost:** ~$0.50-1.00/hour while running
+
+## 🔧 Custom Infrastructure
+
+To use with your own infrastructure:
+
+1. **AWS Environment:**
+   ```bash
+   export AWS_PROFILE=your-profile
+   python3 cis_checker.py check --regions us-east-1,us-west-2
+   ```
+
+2. **Existing EKS Cluster:**
+   ```bash
+   aws eks update-kubeconfig --name your-cluster-name
+   python3 k8s_cis_checker.py --cluster-name your-cluster-name
+   ```
+
+3. **Custom Terraform:**
+   - Modify `tf/terraform.tfvars` with your values
+   - Update `tf/backend.tf` with your S3 bucket
+   - Deploy: `terraform apply`
+
+## 📊 Report Formats
+
+- **JSON:** `--format json` (machine readable)
+- **HTML:** `--format html` (visual reports)
+- **STDOUT:** Default console output
+
+## 🧹 Cleanup
+
+GitHub Actions automatically destroys test infrastructure after checks complete. For manual cleanup:
+
+```bash
+cd tf/
+terraform destroy -auto-approve
 ```
 
-Find your IP: `curl ifconfig.me`
+## 🔧 Configuration
 
-## 📖 Documentation
+Key files:
+- `scripts/cis_checker.py` - AWS CIS checks
+- `scripts/k8s_cis_checker.py` - Kubernetes CIS checks  
+- `tf/` - Terraform infrastructure
+- `.github/workflows/` - Automation workflows
 
-- **[📋 Complete Usage Guide](docs/USAGE.md)** - Comprehensive documentation and examples
-- **[🚀 Step-by-Step Walkthrough](docs/WALKTHROUGH.md)** - End-to-end setup guide
-- **[🧪 Test Infrastructure Guide](tf/README.md)** - Terraform test environment
+## ⚠️ Security Note
 
-## 🏗️ Project Structure
-
-```
-cis-benchmark-checker/
-├── scripts/                      # Python scripts and automation
-│   ├── cis_checker.py           # AWS CIS compliance checker
-│   ├── k8s_cis_checker.py       # Kubernetes CIS compliance checker
-│   ├── unified_cis_checker.py   # Unified checker for both platforms
-│   ├── extended_cis.py          # Extended compliance checks
-│   ├── lambda_function.py       # AWS Lambda deployment
-│   ├── run_cis_checks.sh        # AWS automation script
-│   ├── config.yaml              # Configuration file
-│   └── requirements.txt         # Python dependencies
-├── docs/                        # Documentation
-│   ├── USAGE.md                # Comprehensive usage guide
-│   └── WALKTHROUGH.md          # Step-by-step setup guide
-├── tf/                          # Test infrastructure
-│   ├── *.tf                    # Terraform configuration (AWS + EKS)
-│   ├── kubernetes.tf           # EKS cluster with CIS violations
-│   ├── k8s-manifests/          # Kubernetes test manifests
-│   │   ├── insecure-workloads.yaml
-│   │   ├── insecure-rbac.yaml
-│   │   └── no-network-policies.yaml
-│   ├── deploy.sh               # Main deployment automation
-│   ├── k8s-deploy.sh           # Kubernetes-specific deployment
-│   └── README.md               # Infrastructure documentation
-└── reports/                     # Output directory for reports
-```
-
-## 🎯 Features
-
-- **Multi-Platform Support**: AWS and Kubernetes CIS benchmark checking
-- **Comprehensive CIS Controls**: 25+ AWS and 15+ Kubernetes automated compliance checks
-- **Multiple Deployment Options**: CLI, Lambda, or scheduled automation
-- **Rich Reporting**: JSON, text, and HTML formats
-- **Cloud Integration**: AWS Security Hub, Config, CloudTrail, SNS, S3
-- **Kubernetes Integration**: Native Kubernetes API integration and RBAC analysis
-- **Test Infrastructure**: Complete Terraform environment with EKS for validation
-- **Production Ready**: Error handling, logging, and configuration management
-
-## 📋 Supported CIS Controls
-
-### AWS Identity and Access Management (IAM)
-- **1.12** - No root user access key exists ⚠️ **CRITICAL**
-- **1.13** - MFA enabled for root user ⚠️ **CRITICAL**
+Test infrastructure includes intentionally vulnerable configurations for compliance validation. Always use in isolated environments.
 - **1.3-1.11** - Password policies, key rotation, credential management
 
 ### AWS Logging (CloudTrail & Config)
