@@ -47,3 +47,16 @@ variable "enable_flow_logs" {
   type        = bool
   default     = true
 }
+
+# Load Balancer Configuration
+variable "create_alb" {
+  description = "Create Application Load Balancer (recommended for HTTP/HTTPS apps)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_alb_access_logs" {
+  description = "Enable ALB access logs (requires S3 bucket)"
+  type        = bool
+  default     = false
+}

@@ -48,6 +48,27 @@ output "database_security_group_id" {
 #   value       = aws_cloudtrail.main.arn
 # }
 
+# Load Balancer Information
+output "alb_arn" {
+  description = "ARN of the Application Load Balancer"
+  value       = var.create_alb ? aws_lb.main_alb[0].arn : null
+}
+
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = var.create_alb ? aws_lb.main_alb[0].dns_name : null
+}
+
+output "alb_zone_id" {
+  description = "Zone ID of the Application Load Balancer"
+  value       = var.create_alb ? aws_lb.main_alb[0].zone_id : null
+}
+
+output "alb_target_group_arn" {
+  description = "ARN of the ALB target group"
+  value       = var.create_alb ? aws_lb_target_group.alb_tg[0].arn : null
+}
+
 # output "cloudtrail_bucket_name" {
 #   description = "Name of the CloudTrail S3 bucket"
 #   value       = aws_s3_bucket.cloudtrail.bucket
