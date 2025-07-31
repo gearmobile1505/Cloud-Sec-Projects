@@ -3,7 +3,7 @@ name: CIS Benchmark Compliance Check
 on:
   # Run on pushes to main branch
   push:
-    branches: [ main, github-actions-testing ]
+    branches: [ main ]
     paths:
       - 'cis-benchmark-checker/**'
       - '.github/workflows/cis-compliance-check.yml'
@@ -210,11 +210,15 @@ jobs:
             if (fs.existsSync('cis-benchmark-checker/aws_cis_results.json')) {
               const results = JSON.parse(fs.readFileSync('cis-benchmark-checker/aws_cis_results.json', 'utf8'));
               
-              body += `**Failed Checks:** ${results.summary.failed_checks}\n\n`;
-              body += '### Issues Found:\n';
-              results.failed_checks.forEach(check => {
-                body += `- **${check.control_id}:** ${check.description}\n`;
-              });
+              body += `**Failed Checks:** ${results.summary.non_compliant || 0}\n\n`;
+              
+              if (results.summary.non_compliant > 0) {
+                body += '### Issues Found:\n';
+                const failedChecks = results.results.filter(r => r.status === 'NON_COMPLIANT');
+                failedChecks.forEach(check => {
+                  body += `- **${check.control_id}:** ${check.reason}\n`;
+                });
+              }
             }
             
             body += '\n### Next Steps:\n';
@@ -320,10 +324,11 @@ jobs:
           cd cis-benchmark-checker
           
           # Create placeholder JSON for when cluster doesn't exist
-          cat > k8s_cis_results.json << 'EOF'
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cat > k8s_cis_results.json << EOF
           {
             "report_metadata": {
-              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "timestamp": "$TIMESTAMP",
               "cluster_name": "not-found",
               "total_checks": 0,
               "note": "EKS cluster not found - skipping Kubernetes compliance checks"
