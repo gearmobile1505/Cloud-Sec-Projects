@@ -103,33 +103,8 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
-          echo "::notice::Starting terraform plan..."
-          terraform plan -out=tfplan -detailed-exitcode
-          PLAN_EXIT_CODE=$?
-          echo "plan_exitcode=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
-          echo "::notice::Terraform plan completed with exit code: $PLAN_EXIT_CODE"
-          
-          # Explain exit codes
-          case $PLAN_EXIT_CODE in
-            0) echo "::notice::No changes needed - infrastructure is up to date" ;;
-            1) echo "::error::Terraform plan failed - check configuration" ;;
-            2) echo "::notice::Changes detected - ready to apply" ;;
-            *) echo "::warning::Unexpected exit code: $PLAN_EXIT_CODE" ;;
-          esac
-          
-          # Debug: Show plan output exists
-          if [ -f tfplan ]; then
-            echo "::notice::Plan file created successfully ($(ls -la tfplan | awk '{print $5}') bytes)"
-          else
-            echo "::error::Plan file was not created!"
-          fi
-        continue-on-error: true
-      
-      - name: Debug Plan Exit Code
-        run: |
-          echo "::notice::Debug - Plan exit code from output: '${{ steps.plan.outputs.plan_exitcode }}'"
-          echo "::notice::Debug - Plan step outcome: '${{ steps.plan.outcome }}'"
-          echo "::notice::Debug - Plan step conclusion: '${{ steps.plan.conclusion }}'"
+          terraform plan -out=tfplan
+          echo "::notice::Terraform plan completed"
       
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
@@ -139,32 +114,26 @@ jobs:
           retention-days: 7
       
       - name: Terraform Apply
-        if: steps.plan.outputs.plan_exitcode == '2'
         id: apply
         run: |
-          echo "::notice::Condition met - Plan exit code is '${{ steps.plan.outputs.plan_exitcode }}'"
-          echo "::notice::Starting terraform apply with plan exit code: ${{ steps.plan.outputs.plan_exitcode }}"
           terraform apply -auto-approve tfplan
           echo "::notice::Infrastructure deployed successfully"
       
-      - name: Debug Apply Conditions
-        if: steps.plan.outputs.plan_exitcode != '2'
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_number }}
+          path: cis-benchmark-checker/tf/tfplan
+          retention-days: 7
+      
+      - name: Terraform Apply
+        id: apply
         run: |
-          echo "::warning::Apply step skipped - Plan exit code was '${{ steps.plan.outputs.plan_exitcode }}' (not '2')"
-          echo "::notice::Plan exit code type: $(echo '${{ steps.plan.outputs.plan_exitcode }}' | wc -c) characters"
-          echo "::notice::Expected: '2' (1 character + newline)"
-          
-      - name: Terraform Apply (Force if plan failed)
-        if: steps.plan.outputs.plan_exitcode != '2' && steps.plan.outputs.plan_exitcode != '0'
-        id: apply_force
-        run: |
-          echo "::warning::Plan exit code was '${{ steps.plan.outputs.plan_exitcode }}', attempting direct apply"
-          echo "::notice::Running terraform apply without saved plan"
-          terraform apply -auto-approve
-          echo "::notice::Infrastructure deployed successfully (forced apply)"
+          terraform apply -auto-approve tfplan
+          echo "::notice::Infrastructure deployed successfully"
       
       - name: Save Terraform Outputs
-        if: success() && (steps.apply.outcome == 'success' || steps.apply_force.outcome == 'success')
+        if: success()
         run: |
           terraform output -json > terraform_outputs.json
           
@@ -192,7 +161,7 @@ jobs:
           fi
       
       - name: Upload Terraform Outputs
-        if: success() && (steps.apply.outcome == 'success' || steps.apply_force.outcome == 'success')
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs-${{ github.run_number }}
