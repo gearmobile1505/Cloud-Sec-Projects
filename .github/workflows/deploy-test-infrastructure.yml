@@ -200,30 +200,6 @@ jobs:
           echo "Waiting 2 minutes for infrastructure to stabilize..."
           sleep 120
       
-      - name: Run Full CIS Compliance Test Suite
-        run: |
-          cd cis-benchmark-checker/scripts
-          
-          echo "Running comprehensive CIS compliance tests..."
-          
-          # Run AWS CIS checks
-          echo "### AWS CIS Compliance Check"
-          python3 cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_aws.json
-          
-          # Run extended checks if available
-          if [ -f "extended_cis.py" ]; then
-            echo "### Extended CIS Compliance Check"
-            python3 extended_cis.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_extended.json
-          fi
-          
-          # Run unified checks if available
-          if [ -f "unified_cis_checker.py" ]; then
-            echo "### Unified CIS Compliance Check"
-            python3 unified_cis_checker.py aws check --region $AWS_DEFAULT_REGION --format json --output ../test_results_unified.json
-          fi
-          
-          echo "All compliance tests completed"
-      
       - name: Deploy Kubernetes Test Manifests
         if: success()
         run: |
@@ -248,6 +224,30 @@ jobs:
             echo "Kubernetes cluster not available for manifest deployment"
           fi
       
+      - name: Run Full CIS Compliance Test Suite
+        run: |
+          cd cis-benchmark-checker/scripts
+          
+          echo "Running comprehensive CIS compliance tests..."
+          
+          # Run AWS CIS checks
+          echo "### AWS CIS Compliance Check"
+          python3 cis_checker.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_aws.json
+          
+          # Run extended checks if available
+          if [ -f "extended_cis.py" ]; then
+            echo "### Extended CIS Compliance Check"
+            python3 extended_cis.py --region $AWS_DEFAULT_REGION check --format json --output ../test_results_extended.json
+          fi
+          
+          # Run unified checks if available
+          if [ -f "unified_cis_checker.py" ]; then
+            echo "### Unified CIS Compliance Check"
+            python3 unified_cis_checker.py aws check --region $AWS_DEFAULT_REGION --format json --output ../test_results_unified.json
+          fi
+          
+          echo "All compliance tests completed"
+      
       - name: Run Kubernetes Tests
         if: success()
         run: |
@@ -260,7 +260,7 @@ jobs:
           # Run K8s tests if cluster is available
           if kubectl cluster-info &>/dev/null; then
             echo "### Kubernetes CIS Compliance Check"
-            python3 k8s_cis_checker.py --output json > ../test_results_k8s.json
+            python3 k8s_cis_checker.py check --format json --output ../test_results_k8s.json
           else
             echo "Kubernetes cluster not available for testing"
           fi
