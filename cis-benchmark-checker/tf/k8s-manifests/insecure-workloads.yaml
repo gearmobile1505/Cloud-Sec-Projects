@@ -92,11 +92,8 @@ kind: Service
 metadata:
   name: insecure-service
   namespace: default # CIS violation: Using default namespace
-  annotations:
-    # Use Terraform-managed load balancers instead of Kubernetes-managed ones
-    service.beta.kubernetes.io/aws-load-balancer-managed: "false"
 spec:
-  type: ClusterIP # Changed from LoadBalancer to prevent auto-creation of ELB
+  type: LoadBalancer
   ports:
   - port: 80
     targetPort: 80
