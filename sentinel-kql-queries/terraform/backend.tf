@@ -1,13 +1,18 @@
 # Backend configuration for Terraform state management
-# GitHub Actions will use Azure Storage Backend with environment variables
+# GitHub Actions will dynamically create and configure the backend storage
 
 terraform {
   backend "azurerm" {
-    # Configuration provided via environment variables in GitHub Actions:
-    # ARM_SUBSCRIPTION_ID, ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID
-    # TFSTATE_RESOURCE_GROUP_NAME, TFSTATE_STORAGE_ACCOUNT_NAME, TFSTATE_CONTAINER_NAME
-    resource_group_name  = "rg-sentinel-kql-terraform"
-    storage_account_name = "tfstatesentinelkql"
+    # Configuration will be provided dynamically by GitHub Actions workflow:
+    # - resource_group_name: "terraform-state-rg" 
+    # - storage_account_name: "sentinelkqlstate{run_number}"
+    # - container_name: "tfstate"
+    # - key: "sentinel-kql-testing.terraform.tfstate"
+    # 
+    # The workflow will update this file with the actual storage account name
+    # and authenticate using ARM environment variables
+    resource_group_name  = "terraform-state-rg"
+    storage_account_name = "sentinelkqlstate"
     container_name       = "tfstate"
     key                  = "sentinel-kql-testing.terraform.tfstate"
   }
