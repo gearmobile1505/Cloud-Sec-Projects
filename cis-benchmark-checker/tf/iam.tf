@@ -67,7 +67,7 @@ resource "aws_iam_role" "test_role" {
   tags = local.common_tags
 }
 
-# IAM Policy for test role (removed S3 permissions)
+# IAM Policy for test role
 resource "aws_iam_role_policy" "test_role" {
   name = "${var.project_name}-test-policy"
   role = aws_iam_role.test_role.id
@@ -77,10 +77,14 @@ resource "aws_iam_role_policy" "test_role" {
     Statement = [
       {
         Action = [
-          "ec2:DescribeInstances"
+          "s3:GetObject",
+          "s3:ListBucket"
         ]
         Effect = "Allow"
-        Resource = "*"
+        Resource = [
+          aws_s3_bucket.test_bucket.arn,
+          "${aws_s3_bucket.test_bucket.arn}/*"
+        ]
       }
     ]
   })
@@ -92,4 +96,69 @@ resource "aws_iam_instance_profile" "test_role" {
   role = aws_iam_role.test_role.name
 
   tags = local.common_tags
+}
+
+# Test S3 bucket
+resource "aws_s3_bucket" "test_bucket" {
+  bucket        = "${var.project_name}-test-bucket-${local.account_id}"
+  force_destroy = true
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-test-bucket"
+    Note = "Test bucket for IAM policy testing"
+  })
+}
+
+# S3 bucket public access block (compliant)
+resource "aws_s3_bucket_public_access_block" "test_bucket" {
+  bucket = aws_s3_bucket.test_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Non-compliant S3 bucket (public read)
+resource "aws_s3_bucket" "public_bucket" {
+  count = var.create_non_compliant_resources ? 1 : 0
+  
+  bucket        = "${var.project_name}-public-bucket-${local.account_id}"
+  force_destroy = true
+
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-public-bucket"
+    Note = "VIOLATION - Public bucket for testing"
+  })
+}
+
+# Make bucket public (CIS violation)
+resource "aws_s3_bucket_public_access_block" "public_bucket" {
+  count = var.create_non_compliant_resources ? 1 : 0
+  
+  bucket = aws_s3_bucket.public_bucket[0].id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_policy" "public_bucket" {
+  count = var.create_non_compliant_resources ? 1 : 0
+  
+  bucket = aws_s3_bucket.public_bucket[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.public_bucket[0].arn}/*"
+      }
+    ]
+  })
 }

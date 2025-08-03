@@ -248,16 +248,74 @@ jobs:
         
     - name: Terraform Apply
       if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main'
-      run: terraform apply -auto-approve tfplan
+      timeout-minutes: 60
+      run: |
+        echo "🚀 Deploying Azure Sentinel KQL Testing Infrastructure..."
+        terraform apply -auto-approve tfplan
+        
+        echo "## 🎉 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "Your Azure Sentinel testing environment is ready for KQL testing!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 Quick Access Links:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Azure Portal**: https://portal.azure.com" >> $GITHUB_STEP_SUMMARY
+        echo "- **Microsoft Sentinel**: Search for 'Microsoft Sentinel' in Azure Portal" >> $GITHUB_STEP_SUMMARY
+        echo "- **Log Analytics**: Your workspace will be named \`sentinel-kql-${{ github.event.inputs.environment || 'dev' }}-law-*\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 💡 Next Steps for KQL Testing:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Connect to your test VM to generate security events" >> $GITHUB_STEP_SUMMARY
+        echo "2. Use the generated events guide: \`sentinel-kql-queries/generate-test-events.md\`" >> $GITHUB_STEP_SUMMARY
+        echo "3. Monitor incidents in Sentinel → Incidents tab" >> $GITHUB_STEP_SUMMARY
+        echo "4. **When done testing**, manually trigger this workflow with 'destroy' action" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "⚠️ **Remember**: Infrastructure will keep running until you manually destroy it!" >> $GITHUB_STEP_SUMMARY
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
         ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
         ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
         
+    - name: Display Terraform Outputs
+      if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main'
+      run: |
+        echo "## 📋 Terraform Outputs" >> $GITHUB_STEP_SUMMARY
+        terraform output -json | jq -r 'to_entries[] | "| **\(.key)** | \(.value.value) |"' > outputs.txt
+        echo "| Resource | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        cat outputs.txt >> $GITHUB_STEP_SUMMARY
+        
+    - name: ⚠️ Manual Destroy Confirmation
+      if: github.event.inputs.action == 'destroy'
+      run: |
+        echo "## 🧹 MANUAL DESTROY REQUESTED" >> $GITHUB_STEP_SUMMARY
+        echo "⚠️ **WARNING**: This will permanently delete all Azure Sentinel testing infrastructure!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Resources that will be destroyed:**" >> $GITHUB_STEP_SUMMARY
+        echo "- Log Analytics Workspace (including all stored data)" >> $GITHUB_STEP_SUMMARY
+        echo "- Microsoft Sentinel configuration and rules" >> $GITHUB_STEP_SUMMARY
+        echo "- Virtual Machines and associated resources" >> $GITHUB_STEP_SUMMARY
+        echo "- Storage accounts and networking resources" >> $GITHUB_STEP_SUMMARY
+        echo "- Key Vault and all stored secrets" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "💰 **Estimated cost savings**: ~$18-27/day" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Proceeding with manual destroy as requested...**" >> $GITHUB_STEP_SUMMARY
+        
     - name: Terraform Destroy
       if: github.event.inputs.action == 'destroy'
-      run: terraform destroy -auto-approve
+      timeout-minutes: 60
+      run: |
+        echo "🧹 Destroying Azure Sentinel KQL Testing Infrastructure..."
+        terraform destroy -auto-approve
+        
+        echo "## 🧹 Infrastructure Destroyed Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "✅ All Azure Sentinel testing resources have been deleted." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔄 To redeploy:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Run this workflow again with 'apply' action" >> $GITHUB_STEP_SUMMARY
+        echo "2. Wait ~10-15 minutes for full deployment" >> $GITHUB_STEP_SUMMARY
+        echo "3. Continue KQL testing with fresh environment" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "💡 **Note**: All test data and custom configurations are now removed." >> $GITHUB_STEP_SUMMARY
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
@@ -266,20 +324,14 @@ jobs:
         TF_VAR_project_name: "sentinel-kql-${{ github.event.inputs.environment || 'dev' }}"
         TF_VAR_environment: "${{ github.event.inputs.environment || 'dev' }}"
         TF_VAR_location: "East US"
-        
-    - name: Output Terraform Results
-      if: github.event.inputs.action == 'apply' || github.event_name == 'push'
-      run: |
-        echo "## Terraform Outputs" >> $GITHUB_STEP_SUMMARY
-        terraform output -no-color >> $GITHUB_STEP_SUMMARY
-        
+
     - name: Save Terraform Outputs
-      if: github.event.inputs.action == 'apply' || github.event_name == 'push'
+      if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main'
       run: |
         terraform output -json > terraform_outputs.json
         
     - name: Upload Terraform Outputs
-      if: github.event.inputs.action == 'apply' || github.event_name == 'push'
+      if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main'
       uses: actions/upload-artifact@v4
       with:
         name: terraform-outputs-${{ github.event.inputs.environment || 'dev' }}-${{ github.run_number }}
@@ -287,7 +339,7 @@ jobs:
         retention-days: 30
         
     - name: Post-deployment validation
-      if: github.event.inputs.action == 'apply' || github.event_name == 'push'
+      if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main'
       run: |
         echo "🎉 Azure Sentinel KQL Testing Infrastructure deployed successfully!"
         echo ""
@@ -297,8 +349,28 @@ jobs:
         echo "3. Test KQL queries in Log Analytics workspace"
         echo "4. Review the sample analytics rules in Sentinel"
         echo ""
-        echo "⚠️  Remember: This infrastructure incurs costs (~$35-75/month)"
+        echo "⚠️  Remember: This infrastructure incurs costs (~$18-27/day)"
         echo "Use the 'destroy' action when testing is complete"
+
+  cost-estimate:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'apply'
+    steps:
+    - name: Cost Estimation Warning
+      run: |
+        echo "## 💰 Cost Estimation" >> $GITHUB_STEP_SUMMARY
+        echo "**Estimated daily costs for testing environment:**" >> $GITHUB_STEP_SUMMARY
+        echo "- Log Analytics Workspace: ~$2-5/day (1GB quota)" >> $GITHUB_STEP_SUMMARY
+        echo "- Windows VM (Standard_B2s): ~$15-20/day" >> $GITHUB_STEP_SUMMARY
+        echo "- Storage & Networking: ~$1-2/day" >> $GITHUB_STEP_SUMMARY
+        echo "- **Total: ~$18-27/day**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "⚠️ **Cost Control Features:**" >> $GITHUB_STEP_SUMMARY
+        echo "- VM auto-shuts down at 7 PM UTC daily" >> $GITHUB_STEP_SUMMARY
+        echo "- Log Analytics has 1GB daily quota" >> $GITHUB_STEP_SUMMARY
+        echo "- **MANUAL DESTROY ONLY** - No automatic cleanup!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🛑 **Remember to manually destroy when done testing!**" >> $GITHUB_STEP_SUMMARY
         
   security-scan:
     runs-on: ubuntu-latest

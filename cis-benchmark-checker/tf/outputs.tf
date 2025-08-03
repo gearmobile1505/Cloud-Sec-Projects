@@ -48,27 +48,6 @@ output "database_security_group_id" {
 #   value       = aws_cloudtrail.main.arn
 # }
 
-# Load Balancer Information
-output "alb_arn" {
-  description = "ARN of the Application Load Balancer"
-  value       = var.create_alb ? aws_lb.main_alb[0].arn : null
-}
-
-output "alb_dns_name" {
-  description = "DNS name of the Application Load Balancer"
-  value       = var.create_alb ? aws_lb.main_alb[0].dns_name : null
-}
-
-output "alb_zone_id" {
-  description = "Zone ID of the Application Load Balancer"
-  value       = var.create_alb ? aws_lb.main_alb[0].zone_id : null
-}
-
-output "alb_target_group_arn" {
-  description = "ARN of the ALB target group"
-  value       = var.create_alb ? aws_lb_target_group.alb_tg[0].arn : null
-}
-
 # output "cloudtrail_bucket_name" {
 #   description = "Name of the CloudTrail S3 bucket"
 #   value       = aws_s3_bucket.cloudtrail.bucket
@@ -104,6 +83,17 @@ output "old_key_user_name" {
 output "test_role_arn" {
   description = "ARN of the test IAM role"
   value       = aws_iam_role.test_role.arn
+}
+
+# S3 Information
+output "test_bucket_name" {
+  description = "Name of the test S3 bucket"
+  value       = aws_s3_bucket.test_bucket.bucket
+}
+
+output "public_bucket_name" {
+  description = "Name of the public S3 bucket (if created)"
+  value       = var.create_non_compliant_resources ? aws_s3_bucket.public_bucket[0].bucket : null
 }
 
 # Config Information (Disabled for cleanup)

@@ -22,10 +22,3 @@ enable_config                 = true   # Enable AWS Config (CIS 3.5)
 
 # Notification Configuration
 notification_email = "admin@yourdomain.com"
-
-# Load Balancer Configuration
-# Only ALB is enabled - simple and cost-effective for HTTP/HTTPS apps
-create_alb = true   # ✅ Application Load Balancer (recommended for HTTP/HTTPS)
-
-# ALB Access Logs (requires additional S3 setup)
-enable_alb_access_logs = false

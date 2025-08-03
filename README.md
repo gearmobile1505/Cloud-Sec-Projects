@@ -1,36 +1,21 @@
 # Cloud Security Projects 🛡️
 
-Automated security compliance tools for AWS and Kubernetes with GitHub Actions workflows.
+A collection of security tools, scripts, and automation for AWS, and Azure environments.
 
-## 🔍 Projects
+## 🔍 Project Index
 
-- **[CIS Benchmark Checker](./cis-benchmark-checker/)** - AWS & Kubernetes CIS compliance automation with test infrastructure
-- **[Sentinel KQL Queries](./sentinel-kql-queries/)** - Microsoft Sentinel threat hunting queries
-- **[AWS Auto Remediation](./aws-auto-remediation/)** - Security remediation framework
+- [auto remediate lambda](./auto-remediate-lambda): Lambda functions that auto-remediate insecure configurations.
+- [aws auto remediation](./aws-auto-remediation): Comprehensive AWS security remediation framework with multi-cloud support.
+- [cis benchmark checker](./cis-benchmark-checker): Check AWS resources against CIS benchmark rules with automated testing infrastructure.
+- [sentinel kql queries](./sentinel-kql-queries): Microsoft Sentinel KQL queries for threat hunting and security analytics.
 
-## 🚀 Quick Start
 
-### Option 1: Use GitHub Actions (Recommended)
-1. Fork this repository
-2. Add AWS credentials to GitHub Secrets:
-   - `AWS_ACCESS_KEY_ID`
-   - `AWS_SECRET_ACCESS_KEY`
-3. Run "Deploy and Test CIS Infrastructure" workflow
+## 🛠️ Requirements
 
-### Option 2: Local Usage
-```bash
-cd cis-benchmark-checker/scripts
-pip install -r requirements.txt
-aws configure
-python3 cis_checker.py check --format json
-```
+- AWS CLI configured with active credentials
+- Python 3.9+ and Boto3 (for most tools)
+- IAM permissions based on tool function
 
-## � Requirements
+## ⚠️ Disclaimer
 
-- AWS CLI with configured credentials
-- Python 3.9+
-- Terraform 1.5+ (for infrastructure deployment)
-
-## ⚠️ Security Notice
-
-These tools deploy intentionally vulnerable test infrastructure for compliance testing. Always run in isolated test environments.
+These tools are intended for educational and internal security auditing purposes. Use responsibly and with proper authorization.

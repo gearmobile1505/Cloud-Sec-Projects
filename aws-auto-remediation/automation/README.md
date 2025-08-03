@@ -1,55 +1,53 @@
-# AWS Security Remediation Tools
+# AWS Resource Manager Automation Scripts
 
-Python-based security remediation tools for AWS environments.
+This directory contains the core Python automation scripts for AWS resource management and security remediation.
 
-## 🔧 Tools
+## Scripts
 
 ### `aws_resource_manager.py`
-Multi-service AWS resource management with CLI interface.
+**Core AWS resource management functionality**
 
+A comprehensive tool for managing AWS resources across multiple services with CLI interface.
+
+**Key Features:**
+- Multi-service support (EC2, S3, Lambda, DynamoDB, IAM, etc.)
+- Dynamic operation discovery
+- Flexible parameter handling
+- Error handling and validation
+- JSON output formatting
+
+**Usage Examples:**
 ```bash
 # List EC2 instances
-python3 aws_resource_manager.py ec2 --operation describe_instances
+python3 automation/aws_resource_manager.py ec2 --operation describe_instances
 
 # List S3 buckets  
-python3 aws_resource_manager.py s3
+python3 automation/aws_resource_manager.py s3
 
 # Get Lambda function details
-python3 aws_resource_manager.py lambda --operation get_function --params '{"FunctionName": "my-function"}'
+python3 automation/aws_resource_manager.py lambda --operation get_function --params '{"FunctionName": "my-function"}'
+
+# List available operations for a service
+python3 automation/aws_resource_manager.py s3 --list-operations
 ```
 
 ### `security_group_remediation.py`
-Security group vulnerability scanning and remediation.
+**Security group auditing and remediation tool**
 
+Specialized tool for finding, analyzing, and remediating security group vulnerabilities.
+
+**Key Features:**
+- Find open/vulnerable security groups
+- Generate detailed security reports
+- Dry-run and actual remediation
+- Risk level classification
+- Bulk operations
+- Custom port scanning
+
+**Command Reference:**
+
+#### Basic Syntax:
 ```bash
-# Scan for vulnerabilities
-python3 security_group_remediation.py --scan
-
-# Remediate security groups (dry run)
-python3 security_group_remediation.py --remediate --dry-run
-
-# Generate security report
-python3 security_group_remediation.py --report
-```
-
-## 🚀 Quick Start
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure AWS credentials
-aws configure
-
-# Run security scan
-python3 security_group_remediation.py --scan --region us-east-1
-```
-
-## 📋 Requirements
-
-- Python 3.9+
-- AWS CLI configured
-- IAM permissions for target services
 python3 automation/security_group_remediation.py [global_options] <command> [command_options]
 ```
 
