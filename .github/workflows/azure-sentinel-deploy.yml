@@ -37,6 +37,13 @@ env:
   WORKING_DIRECTORY: './sentinel-kql-queries/terraform'
   ARM_SKIP_PROVIDER_REGISTRATION: true
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+  checks: write
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -165,6 +172,7 @@ jobs:
       if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
       with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
           const path = require('path');
