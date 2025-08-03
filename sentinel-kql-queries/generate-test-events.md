@@ -1,9 +1,18 @@
 # 🚨 Generate Security Events for Sentinel Testing
 
 ## Prerequisites
-1. Azure Sentinel infrastructure deployed
-2. Test VM running and accessible
-3. Microsoft Monitoring Agent installed on VM
+1. Azure Sentinel infrastructure deployed successfully
+2. **Test VM is optional** - disabled by default to avoid quota limits
+3. **If enabling VM**: Set `create_test_vms = true` in terraform.tfvars and ensure sufficient vCPU quota
+4. **Recommended**: Use Azure Cloud Shell or your local machine with Azure CLI for most testing
+
+> **Note**: Test VMs are disabled by default to avoid Azure vCPU quota issues. The testing examples below work with Azure Cloud Shell or any machine with Azure CLI access. Enable VMs only if you need Windows security event generation.
+
+> **✅ Recent Update**: VM monitoring is now fully automated! When you enable VMs (`create_test_vms = true`), Terraform will automatically:
+> - Install both Microsoft Monitoring Agent (MMA) and Azure Monitor Agent (AMA)
+> - Configure Data Collection Rules for Windows Security Events
+> - Set up proper event collection for SecurityEvent and WindowsEvent tables
+> - No manual agent configuration needed!
 
 ## 🔍 **Alert Rule 1: Suspicious Sign-in Activity**
 
@@ -71,14 +80,14 @@ SigninLogs
 ### How to trigger:
 ```bash
 # Use Azure CLI to repeatedly access Key Vault
-# First, get your Key Vault name
-az keyvault list --query "[].name" -o tsv
+# First, get your Key Vault name from the deployed infrastructure
+VAULT_NAME=$(az keyvault list --resource-group sentinel-kql-dev-dev-rg --query "[0].name" -o tsv)
+echo "Using Key Vault: $VAULT_NAME"
 
-# Then repeatedly access secrets
-VAULT_NAME="your-keyvault-name"
+# Then repeatedly access secrets to trigger anomaly detection
 for i in {1..50}; do
     echo "Access attempt $i"
-    az keyvault secret show --name "test-secret" --vault-name $VAULT_NAME --query "value" -o tsv
+    az keyvault secret show --name "test-secret" --vault-name $VAULT_NAME --query "value" -o tsv 2>/dev/null || echo "Access failed"
     sleep 2
 done
 ```
@@ -158,18 +167,20 @@ net user suspicioususer /delete
 
 ### 3. Query Raw Data:
 ```kql
-// Check for failed login events
-SecurityEvent
+// Check for failed login events (both legacy and modern tables)
+union SecurityEvent, WindowsEvent
 | where TimeGenerated > ago(1h)
-| where EventID == 4625  // Failed logon
-| project TimeGenerated, Account, IpAddress, WorkstationName, ProcessName
+| where (EventID == 4625 and isnotempty(SecurityEvent)) or (EventID == 4625 and isnotempty(WindowsEvent))  // Failed logon
+| project TimeGenerated, Account, IpAddress, WorkstationName, ProcessName, Computer
+| order by TimeGenerated desc
 
-// Check for PowerShell events
-SecurityEvent
+// Check for PowerShell events (both legacy and modern tables)
+union SecurityEvent, WindowsEvent
 | where TimeGenerated > ago(1h)
-| where EventID == 4688  // Process creation
+| where (EventID == 4688 and isnotempty(SecurityEvent)) or (EventID == 4688 and isnotempty(WindowsEvent))  // Process creation
 | where ProcessName contains "powershell"
-| project TimeGenerated, Account, ProcessName, CommandLine
+| project TimeGenerated, Account, ProcessName, CommandLine, Computer
+| order by TimeGenerated desc
 
 // Check Key Vault access
 AzureDiagnostics
@@ -177,6 +188,14 @@ AzureDiagnostics
 | where ResourceType == "VAULTS"
 | where OperationName in ("SecretGet", "KeyGet", "VaultGet")
 | project TimeGenerated, CallerIPAddress, OperationName, ResultSignature
+| order by TimeGenerated desc
+
+// Verify VM is sending data (Heartbeat check)
+Heartbeat
+| where TimeGenerated > ago(1h)
+| where Computer contains "sentinelkqltest"
+| project TimeGenerated, Computer, OSType, OSMajorVersion
+| order by TimeGenerated desc
 ```
 
 ---
@@ -201,11 +220,31 @@ AzureDiagnostics
 
 ## 🔍 **Troubleshooting**
 
-If alerts don't trigger:
-1. Check if VM has Microsoft Monitoring Agent installed
-2. Verify Log Analytics workspace is receiving data
-3. Confirm alert rules are enabled
-4. Check query syntax in Analytics rules
-5. Verify time windows in alert rules match your test timing
+### VM Security Events Not Appearing:
+If alerts don't trigger after enabling VMs:
+1. **Wait 10-15 minutes** - Agent installation and DCR association takes time
+2. **Check agent status** - Both MMA and AMA should be installed automatically
+3. **Verify data collection** - Use this query to check for any Windows events:
+   ```kql
+   union SecurityEvent, WindowsEvent
+   | where TimeGenerated > ago(1h)
+   | where Computer contains "sentinelkqltest"
+   | take 10
+   ```
+4. **Check DCR association** - Data Collection Rule should be linked to VM automatically
+
+### General Troubleshooting:
+1. **Verify Log Analytics workspace is receiving data**
+2. **Confirm alert rules are enabled** - Go to Sentinel → Analytics → Active rules
+3. **Check query syntax** - Test queries manually in Log Analytics
+4. **Verify time windows** - Alert rules match your test timing
+5. **Monitor agent heartbeats** - Use `Heartbeat | where Computer contains "sentinelkqltest"`
+
+### ✅ **What's Now Automated:**
+- ✅ Microsoft Monitoring Agent (MMA) installation
+- ✅ Azure Monitor Agent (AMA) installation  
+- ✅ Data Collection Rules for Security Events
+- ✅ DCR association with VM
+- ✅ Windows Event Log collection setup
 
 Happy testing! 🚀

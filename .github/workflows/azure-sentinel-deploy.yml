@@ -84,7 +84,7 @@ jobs:
         az group create --name terraform-state-rg --location "East US" --output none || true
         
         # Create storage account for Terraform state (with unique suffix)
-        STORAGE_ACCOUNT_NAME="sentinelkqlstate${{ github.run_number }}"
+        STORAGE_ACCOUNT_NAME="sentinelkqlstate22"
         echo "STORAGE_ACCOUNT_NAME=$STORAGE_ACCOUNT_NAME" >> $GITHUB_ENV
         
         # Check if storage account exists, create if not
@@ -110,7 +110,8 @@ jobs:
       if: github.event.inputs.action == 'apply' || github.event_name == 'push'
       run: |
         # Update backend.tf with the actual storage account name
-        sed -i "s/sentinelkqlstate/sentinelkqlstate${{ github.run_number }}/g" backend.tf
+        # Use the persistent storage account that already exists
+        echo "Using existing storage account: sentinelkqlstate22"
         
     - name: Terraform Init
       run: terraform init
@@ -142,8 +143,7 @@ jobs:
         # Cost optimization for automated deployments
         log_analytics_retention_days = 30
         log_analytics_daily_quota_gb = 1
-        create_test_vms = true
-        vm_size = "Standard_B2s"
+        create_test_vms = false  # Disabled to avoid vCPU quota issues
         vm_admin_username = "azureuser"
         
         enable_security_center = true
@@ -165,8 +165,19 @@ jobs:
     - name: Terraform Plan
       id: plan
       run: |
+        set -e  # Exit on any error
         terraform plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt
-        echo "plan-exitcode=$?" >> $GITHUB_OUTPUT
+        PLAN_EXIT_CODE=$?
+        echo "plan-exitcode=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+        
+        if [ $PLAN_EXIT_CODE -ne 0 ]; then
+          echo "❌ Terraform plan failed with exit code $PLAN_EXIT_CODE"
+          echo "Plan output:"
+          cat plan_output.txt
+          exit $PLAN_EXIT_CODE
+        else
+          echo "✅ Terraform plan succeeded"
+        fi
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
@@ -247,7 +258,7 @@ jobs:
         echo "✅ **Plan completed successfully!** Review the changes above." >> $GITHUB_STEP_SUMMARY
         
     - name: Terraform Apply
-      if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main'
+      if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main' && steps.plan.outcome == 'success'
       timeout-minutes: 60
       run: |
         echo "🚀 Deploying Azure Sentinel KQL Testing Infrastructure..."
