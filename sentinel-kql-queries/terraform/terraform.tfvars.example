@@ -1,0 +1,76 @@
+# Example Terraform Variables for Azure Sentinel KQL Testing Infrastructure
+# Copy this file to terraform.tfvars and customize the values
+
+# Basic Configuration
+project_name = "sentinel-kql-test"
+environment  = "dev"
+location     = "East US"  # or "West US 2", "Central US", etc.
+
+# Tags for resource organization
+tags = {
+  Project     = "Sentinel KQL Testing"
+  Environment = "Development"
+  Owner       = "Security Team"
+  Purpose     = "KQL Query Validation"
+  CostCenter  = "Security"
+}
+
+# Log Analytics Workspace Configuration
+log_analytics_sku               = "PerGB2018"  # or "Free", "Standalone", "PerNode"
+log_analytics_retention_days    = 30           # 30-730 days, Free tier supports up to 7 days
+log_analytics_daily_quota_gb    = 1            # Daily ingestion limit in GB, -1 for unlimited
+
+# Virtual Network Configuration
+vnet_address_space    = ["10.0.0.0/16"]
+subnet_address_prefix = "10.0.1.0/24"
+
+# Test VM Configuration
+create_test_vms = true
+vm_size         = "Standard_B2s"    # Cost-effective option, can use "Standard_D2s_v3" for better performance
+vm_admin_username = "azureuser"     # Change this to your preferred username
+
+# Security and Monitoring
+enable_security_center       = true
+enable_sentinel             = true
+enable_key_vault           = true
+enable_network_watcher     = true
+enable_vm_insights         = true
+enable_flow_logs          = true
+enable_auto_shutdown      = true
+auto_shutdown_time        = "1900"  # 7:00 PM
+
+# Data Retention (affects cost)
+flow_logs_retention_days   = 7      # 1-365 days
+storage_account_tier      = "Standard"
+storage_replication_type  = "LRS"   # LRS, GRS, RAGRS, ZRS
+
+# Sample Analytics Rules Configuration
+create_sample_analytics_rules = true
+
+# Example additional configurations you might want to customize:
+
+# For production environments, consider:
+# log_analytics_sku = "PerGB2018"
+# log_analytics_retention_days = 90
+# log_analytics_daily_quota_gb = 10
+# vm_size = "Standard_D2s_v3"
+# storage_replication_type = "GRS"
+# flow_logs_retention_days = 30
+
+# For cost optimization:
+# log_analytics_sku = "PerGB2018"
+# log_analytics_retention_days = 30
+# log_analytics_daily_quota_gb = 1
+# create_test_vms = false
+# enable_key_vault = false
+# enable_flow_logs = false
+
+# Common Azure regions:
+# - "East US"
+# - "East US 2" 
+# - "West US 2"
+# - "Central US"
+# - "West Europe"
+# - "North Europe"
+# - "Southeast Asia"
+# - "Australia East"
