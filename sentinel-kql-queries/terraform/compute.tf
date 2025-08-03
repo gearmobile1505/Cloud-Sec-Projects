@@ -2,6 +2,7 @@
 resource "azurerm_windows_virtual_machine" "test" {
   count               = var.create_test_vms ? 1 : 0
   name                = "${local.resource_prefix}-testvm"
+  computer_name       = "testvm-${random_string.suffix.result}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   size                = "Standard_B2s"
@@ -65,13 +66,7 @@ resource "azurerm_dev_test_global_vm_shutdown_schedule" "test" {
   tags = local.common_tags
 }
 
-# Security Center Auto Provisioning
-resource "azurerm_security_center_auto_provisioning" "main" {
-  count          = var.enable_defender ? 1 : 0
-  auto_provision = "On"
-}
-
-# Security Center Workspace
+# Security Center Workspace (Auto provisioning is deprecated)
 resource "azurerm_security_center_workspace" "main" {
   count        = var.enable_defender ? 1 : 0
   scope        = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
@@ -81,7 +76,7 @@ resource "azurerm_security_center_workspace" "main" {
 # Key Vault for secrets testing
 resource "azurerm_key_vault" "main" {
   count                       = var.enable_key_vault ? 1 : 0
-  name                        = "${local.resource_prefix}-kv-${random_string.suffix.result}"
+  name                        = "kv-${substr(replace(local.resource_prefix, "-", ""), 0, 11)}-${random_string.suffix.result}"
   location                    = azurerm_resource_group.main.location
   resource_group_name         = azurerm_resource_group.main.name
   enabled_for_disk_encryption = true

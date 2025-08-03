@@ -27,7 +27,7 @@ resource "azurerm_sentinel_log_analytics_workspace_onboarding" "main" {
 
 # Storage Account for logs and diagnostics
 resource "azurerm_storage_account" "logs" {
-  name                     = "${replace(local.resource_prefix, "-", "")}logs${random_string.suffix.result}"
+  name                     = "log${substr(replace(local.resource_prefix, "-", ""), 0, 11)}${random_string.suffix.result}"
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
