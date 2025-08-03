@@ -49,6 +49,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'dev' }}
     
+    env:
+      # Set ARM environment variables for Terraform authentication
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_USE_MSI: false
+    
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIRECTORY }}
@@ -62,10 +70,12 @@ jobs:
       with:
         terraform_version: ${{ env.TF_VERSION }}
         
-    - name: Azure Login
+    - name: Azure Login (for Backend Storage Setup)
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
+      # Note: This is only used for setting up the Terraform backend storage
+      # Terraform itself uses the ARM_* environment variables for authentication
         
     - name: Setup Terraform Backend Storage
       if: github.event.inputs.action == 'apply' || github.event_name == 'push'
@@ -104,11 +114,6 @@ jobs:
         
     - name: Terraform Init
       run: terraform init
-      env:
-        ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-        ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
-        ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-        ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
         
     - name: Terraform Format Check
       run: terraform fmt -check -recursive
