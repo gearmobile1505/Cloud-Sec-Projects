@@ -114,6 +114,8 @@ chmod +x setup-github-actions.sh
 ./setup-github-actions.sh
 ```
 
+⚠️ **Note:** Some Sentinel data connectors require additional permissions beyond Contributor role (e.g., Global Admin for Azure AD connector). These are disabled by default but can be enabled manually in the Azure portal after deployment.
+
 This script will automatically handle steps 4-6. **Skip to Step 7 if using this option.**
 
 #### **Option B: Manual Creation**

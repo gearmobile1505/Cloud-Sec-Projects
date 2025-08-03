@@ -1,8 +1,10 @@
 # Sentinel Data Connectors
 
 # Azure Activity Data Connector
+# Note: Requires additional Azure AD permissions (Global Admin/Security Admin)
+# Disabled by default due to permission requirements
 resource "azurerm_sentinel_data_connector_azure_active_directory" "main" {
-  count                      = var.enable_sentinel && var.enable_data_connectors ? 1 : 0
+  count                      = false ? 1 : 0  # Disabled due to permission requirements
   name                       = "AzureActiveDirectory"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
@@ -17,8 +19,10 @@ resource "azurerm_sentinel_data_connector_azure_security_center" "main" {
 }
 
 # Office 365 Data Connector
+# Note: Requires Office 365 tenant and additional permissions
+# Disabled by default due to permission requirements
 resource "azurerm_sentinel_data_connector_office_365" "main" {
-  count                      = var.enable_sentinel && var.enable_data_connectors ? 1 : 0
+  count                      = false ? 1 : 0  # Disabled due to permission requirements
   name                       = "Office365"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
@@ -106,9 +110,12 @@ resource "azurerm_sentinel_alert_rule_scheduled" "keyvault_anomalies" {
   trigger_threshold = 1
 
   query = <<QUERY
-KeyVaultDiagnostics
+// Note: KeyVaultDiagnostics table may not exist initially
+// Using AzureDiagnostics as fallback for Key Vault logs
+AzureDiagnostics
 | where TimeGenerated > ago(7d)
-| where OperationName == "SecretGet" or OperationName == "KeyGet"
+| where ResourceType == "VAULTS"
+| where OperationName in ("SecretGet", "KeyGet", "VaultGet")
 | summarize AccessCount = count() by CallerIPAddress, bin(TimeGenerated, 1h)
 | summarize avg(AccessCount), max(AccessCount), count() by CallerIPAddress
 | where max_AccessCount > (avg_AccessCount * 3) and count_ > 24  // Anomalous access pattern
