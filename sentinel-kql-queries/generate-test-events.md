@@ -1,5 +1,12 @@
 # 🚨 Generate Security Events for Sentinel Testing
 
+## ⚡ **Automated vs Manual Setup**
+
+**🎉 Good News**: All VM monitoring setup is now **fully automated** via Terraform!
+
+- **✅ Automated (Recommended)**: Set `create_test_vms = true` and Terraform handles everything
+- **⚙️ Manual Alternative**: Follow the manual setup instructions at the bottom if needed
+
 ## Prerequisites
 1. Azure Sentinel infrastructure deployed successfully
 2. **Test VM is optional** - disabled by default to avoid quota limits
@@ -246,5 +253,54 @@ If alerts don't trigger after enabling VMs:
 - ✅ Data Collection Rules for Security Events
 - ✅ DCR association with VM
 - ✅ Windows Event Log collection setup
+
+### 🔧 **Manual Setup (If Needed)**
+If you need to set up VM monitoring manually (not required with our Terraform automation):
+
+> **📋 Reference**: These are the same steps that Terraform performs automatically in `terraform/compute.tf` using `azurerm_virtual_machine_extension` and `azurerm_monitor_data_collection_rule` resources.
+
+#### **1. Install Monitoring Agents via Azure Portal:**
+1. Go to **Azure Portal** → **Virtual Machines** → Select your VM
+2. Navigate to **Settings** → **Extensions + applications**
+3. **Add Extension** → Search for "Microsoft Monitoring Agent"
+4. Configure with your **Log Analytics Workspace ID** and **Primary Key**
+5. **Add Extension** → Search for "Azure Monitor Agent" 
+6. Install and configure AMA extension
+
+#### **2. Create Data Collection Rules (DCR):**
+1. Go to **Azure Portal** → **Monitor** → **Data Collection Rules**
+2. **Create** new DCR with these settings:
+   - **Name**: `windows-security-events-dcr`
+   - **Resource Group**: Same as your Sentinel workspace
+   - **Region**: Same as your workspace
+3. **Data Sources** tab:
+   - **Add data source** → **Windows Event Logs**
+   - **Select event logs**: `Security`, `System`, `Application`
+   - **Log levels**: `Critical`, `Error`, `Warning`, `Information`
+4. **Destinations** tab:
+   - **Add destination** → **Azure Monitor Logs**
+   - **Select your Log Analytics workspace**
+5. **Data Collection Endpoints** → **Create** or select existing
+6. **Resources** tab → **Add resources** → Select your VM
+
+#### **3. Verify Agent Installation:**
+```kql
+// Check agent heartbeats
+Heartbeat
+| where Computer contains "sentinelkqltest"
+| summarize LastHeartbeat = max(TimeGenerated) by Computer, OSType
+```
+
+#### **4. Test Data Collection:**
+```kql
+// Verify Windows Security Events are flowing
+union SecurityEvent, WindowsEvent
+| where TimeGenerated > ago(1h)
+| where Computer contains "sentinelkqltest"
+| summarize EventCount = count() by EventID
+| order by EventCount desc
+```
+
+> **💡 Note**: With our Terraform automation, all these manual steps are done automatically when you set `create_test_vms = true`. The manual instructions above are provided for reference or troubleshooting purposes.
 
 Happy testing! 🚀
