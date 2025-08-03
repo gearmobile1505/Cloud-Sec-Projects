@@ -226,7 +226,7 @@ jobs:
         
     - name: Upload Terraform Outputs
       if: github.event.inputs.action == 'apply' || github.event_name == 'push'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: terraform-outputs-${{ github.event.inputs.environment || 'dev' }}-${{ github.run_number }}
         path: ${{ env.WORKING_DIRECTORY }}/terraform_outputs.json
