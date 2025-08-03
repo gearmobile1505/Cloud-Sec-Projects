@@ -153,8 +153,8 @@ jobs:
     - name: Terraform Plan
       id: plan
       run: |
-        terraform plan -no-color -input=false -out=tfplan
-        terraform show -no-color tfplan > plan_output.txt
+        terraform plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt
+        echo "plan-exitcode=$?" >> $GITHUB_OUTPUT
       env:
         ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
         ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
@@ -167,22 +167,48 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const plan = fs.readFileSync('${{ env.WORKING_DIRECTORY }}/plan_output.txt', 'utf8');
-          const maxLength = 65000; // GitHub comment limit
-          const truncatedPlan = plan.length > maxLength ? 
-            plan.substring(0, maxLength) + '\n\n... (truncated)' : plan;
+          const path = require('path');
+          const planFile = path.join('${{ env.WORKING_DIRECTORY }}', 'plan_output.txt');
           
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: `## Terraform Plan for Azure Sentinel KQL Testing Infrastructure
+          try {
+            const plan = fs.readFileSync(planFile, 'utf8');
+            const maxLength = 65000; // GitHub comment limit
+            const truncatedPlan = plan.length > maxLength ? 
+              plan.substring(0, maxLength) + '\n\n... (truncated)' : plan;
             
-            <details>
-            <summary>Show Plan</summary>
-            
-            \`\`\`terraform
-            ${truncatedPlan}
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Terraform Plan for Azure Sentinel KQL Testing Infrastructure
+              
+              <details>
+              <summary>Show Plan</summary>
+              
+              \`\`\`terraform
+              ${truncatedPlan}
+              \`\`\`
+              </details>
+              
+              **Environment:** \${{ github.event.inputs.environment || 'dev' }}
+              **Action:** Plan Only`
+            });
+          } catch (error) {
+            console.log('Error reading plan file:', error);
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Terraform Plan for Azure Sentinel KQL Testing Infrastructure
+              
+              ❌ **Error:** Could not read terraform plan output.
+              
+              Please check the workflow logs for details.
+              
+              **Environment:** \${{ github.event.inputs.environment || 'dev' }}
+              **Action:** Plan Only`
+            });
+          }
             \`\`\`
             
             </details>
