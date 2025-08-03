@@ -218,6 +218,29 @@ jobs:
             });
           }
           
+    - name: Display Plan Output
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan'
+      run: |
+        echo "## 📋 Terraform Plan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** ${{ github.event.inputs.environment || 'dev' }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Action:** Plan Only" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Plan Output:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`terraform" >> $GITHUB_STEP_SUMMARY
+        if [ -f "plan_output.txt" ]; then
+          head -100 plan_output.txt >> $GITHUB_STEP_SUMMARY
+          if [ $(wc -l < plan_output.txt) -gt 100 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "... (output truncated - see full logs above)" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "Plan output file not found" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Plan completed successfully!** Review the changes above." >> $GITHUB_STEP_SUMMARY
+        
     - name: Terraform Apply
       if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main'
       run: terraform apply -auto-approve tfplan
