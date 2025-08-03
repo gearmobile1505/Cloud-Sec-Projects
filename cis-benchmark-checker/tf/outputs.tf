@@ -1,16 +1,5 @@
 # Outputs for CIS Benchmark Test Infrastructure
 
-# DynamoDB for Terraform Backend
-output "terraform_locks_table_name" {
-  description = "Name of the DynamoDB table for Terraform state locking"
-  value       = aws_dynamodb_table.terraform_locks.name
-}
-
-output "terraform_locks_table_arn" {
-  description = "ARN of the DynamoDB table for Terraform state locking"
-  value       = aws_dynamodb_table.terraform_locks.arn
-}
-
 # VPC Information
 output "vpc_id" {
   description = "ID of the VPC"
