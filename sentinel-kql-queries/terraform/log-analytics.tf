@@ -1,6 +1,6 @@
 # Resource Group
 resource "azurerm_resource_group" "main" {
-  name     = "${local.resource_prefix}-rg"
+  name     = "${local.resource_prefix}-rg-${random_string.suffix.result}"
   location = var.location
 
   tags = local.common_tags
