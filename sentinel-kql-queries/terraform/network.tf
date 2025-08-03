@@ -58,14 +58,20 @@ resource "azurerm_network_interface" "test_vm" {
   tags = local.common_tags
 }
 
-# Network Watcher (for flow logs and network monitoring)
-resource "azurerm_network_watcher" "main" {
-  name                = "${local.resource_prefix}-nw"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-
-  tags = local.common_tags
+# Network Watcher (use existing one - only 1 allowed per subscription per region)
+# Azure automatically creates a default Network Watcher named "NetworkWatcher_<region>"
+data "azurerm_network_watcher" "main" {
+  name                = "NetworkWatcher_${replace(lower(var.location), " ", "")}"
+  resource_group_name = "NetworkWatcherRG"
 }
+
+# Alternative: Create Network Watcher only if none exists (commented due to limit)
+# resource "azurerm_network_watcher" "main" {
+#   name                = "${local.resource_prefix}-nw"
+#   location            = azurerm_resource_group.main.location
+#   resource_group_name = azurerm_resource_group.main.name
+#   tags = local.common_tags
+# }
 
 # Network Watcher Flow Log
 # Note: Commented out due to Azure provider compatibility issues
@@ -73,8 +79,8 @@ resource "azurerm_network_watcher" "main" {
 /*
 resource "azurerm_network_watcher_flow_log" "main" {
   count                = var.enable_flow_logs ? 1 : 0
-  network_watcher_name = azurerm_network_watcher.main.name
-  resource_group_name  = azurerm_resource_group.main.name
+  network_watcher_name = data.azurerm_network_watcher.main.name
+  resource_group_name  = data.azurerm_network_watcher.main.resource_group_name
   name                 = "${local.resource_prefix}-flowlog"
 
   target_resource_id = azurerm_network_security_group.test.id
