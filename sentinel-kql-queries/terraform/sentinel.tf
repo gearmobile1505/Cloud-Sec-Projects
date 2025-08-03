@@ -5,6 +5,7 @@ resource "azurerm_sentinel_data_connector_azure_active_directory" "main" {
   count                      = var.enable_sentinel && var.enable_data_connectors ? 1 : 0
   name                       = "AzureActiveDirectory"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
 }
 
 # Azure Security Center Data Connector
@@ -12,6 +13,7 @@ resource "azurerm_sentinel_data_connector_azure_security_center" "main" {
   count                      = var.enable_sentinel && var.enable_data_connectors ? 1 : 0
   name                       = "AzureSecurityCenter"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
 }
 
 # Office 365 Data Connector
@@ -19,6 +21,7 @@ resource "azurerm_sentinel_data_connector_office_365" "main" {
   count                      = var.enable_sentinel && var.enable_data_connectors ? 1 : 0
   name                       = "Office365"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
 
   exchange_enabled   = true
   sharepoint_enabled = true
@@ -59,6 +62,7 @@ resource "azurerm_sentinel_alert_rule_scheduled" "high_risk_ip" {
   count                      = var.enable_sentinel ? 1 : 0
   name                       = "High-Risk IP Activity"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
   display_name               = "Activity from High-Risk IP Addresses"
 
   severity = "Medium"
@@ -91,6 +95,7 @@ resource "azurerm_sentinel_alert_rule_scheduled" "keyvault_anomalies" {
   count                      = var.enable_sentinel && var.enable_key_vault ? 1 : 0
   name                       = "Key Vault Access Anomalies"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
   display_name               = "Unusual Key Vault Access Patterns"
 
   severity = "Medium"
@@ -120,6 +125,7 @@ resource "azurerm_sentinel_watchlist" "known_good_ips" {
   count                      = var.enable_sentinel ? 1 : 0
   name                       = "KnownGoodIPs"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
   display_name               = "Known Good IP Addresses"
   description                = "List of trusted IP addresses for exclusion from alerts"
 
