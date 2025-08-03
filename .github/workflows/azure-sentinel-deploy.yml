@@ -172,7 +172,7 @@ jobs:
           
           try {
             const plan = fs.readFileSync(planFile, 'utf8');
-            const maxLength = 65000; // GitHub comment limit
+            const maxLength = 65000;
             const truncatedPlan = plan.length > maxLength ? 
               plan.substring(0, maxLength) + '\n\n... (truncated)' : plan;
             
@@ -190,7 +190,7 @@ jobs:
               \`\`\`
               </details>
               
-              **Environment:** \${{ github.event.inputs.environment || 'dev' }}
+              **Environment:** ${{ github.event.inputs.environment || 'dev' }}
               **Action:** Plan Only`
             });
           } catch (error) {
@@ -205,18 +205,10 @@ jobs:
               
               Please check the workflow logs for details.
               
-              **Environment:** \${{ github.event.inputs.environment || 'dev' }}
+              **Environment:** ${{ github.event.inputs.environment || 'dev' }}
               **Action:** Plan Only`
             });
           }
-            \`\`\`
-            
-            </details>
-            
-            **Environment:** ${{ github.event.inputs.environment || 'dev' }}
-            **Action:** Plan
-            `
-          });
           
     - name: Terraform Apply
       if: (github.event.inputs.action == 'apply' || github.event_name == 'push') && github.ref == 'refs/heads/main'
