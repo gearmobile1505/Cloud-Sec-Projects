@@ -9,13 +9,13 @@ variable "location" {
 variable "environment" {
   description = "Environment name (e.g., test, dev, prod)"
   type        = string
-  default     = "test"
+  default     = "dev"
 }
 
 variable "project_name" {
   description = "Name of the project"
   type        = string
-  default     = "sentinel-kql"
+  default     = "sentinel-kql-dev"
 }
 
 # Log Analytics Workspace Configuration
@@ -52,9 +52,9 @@ variable "enable_alert_rules" {
 
 # Test Environment Configuration
 variable "create_test_vms" {
-  description = "Create test VMs to generate security events"
+  description = "Create test VMs to generate security events (requires vCPU quota)"
   type        = bool
-  default     = true
+  default     = false  # Disabled by default to avoid quota issues
 }
 
 variable "vm_admin_username" {

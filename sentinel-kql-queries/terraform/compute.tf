@@ -2,10 +2,10 @@
 resource "azurerm_windows_virtual_machine" "test" {
   count               = var.create_test_vms ? 1 : 0
   name                = "${local.resource_prefix}-testvm"
-  computer_name       = "testvm-${random_string.suffix.result}"
+  computer_name       = "sentinelkqltest"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  size                = "Standard_B2s"
+  size                = "Standard_B1s"  # Smallest size: 1 vCPU, 1 GB RAM
   admin_username      = var.vm_admin_username
   admin_password      = var.vm_admin_password
 
@@ -15,7 +15,7 @@ resource "azurerm_windows_virtual_machine" "test" {
 
   os_disk {
     caching              = "ReadWrite"
-    storage_account_type = "Premium_LRS"
+    storage_account_type = "Standard_LRS"  # Use Standard disk to reduce costs
   }
 
   source_image_reference {
@@ -28,7 +28,7 @@ resource "azurerm_windows_virtual_machine" "test" {
   tags = local.common_tags
 }
 
-# VM Extension for Microsoft Monitoring Agent
+# VM Extension for Microsoft Monitoring Agent (Legacy)
 resource "azurerm_virtual_machine_extension" "mma" {
   count                      = var.create_test_vms ? 1 : 0
   name                       = "MicrosoftMonitoringAgent"
@@ -47,6 +47,64 @@ resource "azurerm_virtual_machine_extension" "mma" {
   })
 
   tags = local.common_tags
+}
+
+# Azure Monitor Agent (Modern)
+resource "azurerm_virtual_machine_extension" "ama" {
+  count                      = var.create_test_vms ? 1 : 0
+  name                       = "AzureMonitorWindowsAgent"
+  virtual_machine_id         = azurerm_windows_virtual_machine.test[0].id
+  publisher                  = "Microsoft.Azure.Monitor"
+  type                       = "AzureMonitorWindowsAgent"
+  type_handler_version       = "1.0"
+  auto_upgrade_minor_version = true
+  automatic_upgrade_enabled  = true
+
+  tags = local.common_tags
+}
+
+# Data Collection Rule for Windows Security Events
+resource "azurerm_monitor_data_collection_rule" "security_events" {
+  count               = var.create_test_vms ? 1 : 0
+  name                = "${local.resource_prefix}-security-events-dcr"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  description         = "Data collection rule for Windows Security Events"
+
+  destinations {
+    log_analytics {
+      workspace_resource_id = azurerm_log_analytics_workspace.main.id
+      name                  = "LogAnalyticsDestination"
+    }
+  }
+
+  data_flow {
+    streams      = ["Microsoft-WindowsEvent"]
+    destinations = ["LogAnalyticsDestination"]
+  }
+
+  data_sources {
+    windows_event_log {
+      streams = ["Microsoft-WindowsEvent"]
+      x_path_queries = [
+        "Security!*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=0 or Level=5)]]",
+        "System!*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=0 or Level=5)]]",
+        "Application!*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=0 or Level=5)]]"
+      ]
+      name = "SecurityEventDataSource"
+    }
+  }
+
+  tags = local.common_tags
+}
+
+# Associate Data Collection Rule with VM
+resource "azurerm_monitor_data_collection_rule_association" "security_events" {
+  count                   = var.create_test_vms ? 1 : 0
+  name                    = "${local.resource_prefix}-security-events-dcra"
+  target_resource_id      = azurerm_windows_virtual_machine.test[0].id
+  data_collection_rule_id = azurerm_monitor_data_collection_rule.security_events[0].id
+  description             = "Association between VM and Security Events DCR"
 }
 
 # Auto-shutdown schedule for cost control
@@ -77,7 +135,7 @@ resource "azurerm_dev_test_global_vm_shutdown_schedule" "test" {
 # Key Vault for secrets testing
 resource "azurerm_key_vault" "main" {
   count                       = var.enable_key_vault ? 1 : 0
-  name                        = "kv-${substr(replace(local.resource_prefix, "-", ""), 0, 11)}-${random_string.suffix.result}"
+  name                        = "kv-sentinelkql-qg0m374b"
   location                    = azurerm_resource_group.main.location
   resource_group_name         = azurerm_resource_group.main.name
   enabled_for_disk_encryption = true

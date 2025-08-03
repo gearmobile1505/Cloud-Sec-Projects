@@ -1,6 +1,6 @@
 # Resource Group
 resource "azurerm_resource_group" "main" {
-  name     = "${local.resource_prefix}-rg-${random_string.suffix.result}"
+  name     = "sentinel-kql-dev-dev-rg"
   location = var.location
 
   tags = local.common_tags
@@ -8,7 +8,7 @@ resource "azurerm_resource_group" "main" {
 
 # Log Analytics Workspace
 resource "azurerm_log_analytics_workspace" "main" {
-  name                = "${local.resource_prefix}-law-${random_string.suffix.result}"
+  name                = "sentinel-kql-dev-dev-law-qg0m374b"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "PerGB2018"
@@ -27,7 +27,7 @@ resource "azurerm_sentinel_log_analytics_workspace_onboarding" "main" {
 
 # Storage Account for logs and diagnostics
 resource "azurerm_storage_account" "logs" {
-  name                     = "log${substr(replace(local.resource_prefix, "-", ""), 0, 11)}${random_string.suffix.result}"
+  name                     = "logsentinelkqlqg0m374b"
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"

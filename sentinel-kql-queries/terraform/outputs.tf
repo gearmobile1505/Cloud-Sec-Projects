@@ -60,17 +60,31 @@ output "virtual_network_id" {
 # Test VM Information
 output "test_vm_name" {
   description = "Name of the test VM"
-  value       = var.create_test_vms ? azurerm_windows_virtual_machine.test[0].name : null
+  value       = var.create_test_vms ? azurerm_windows_virtual_machine.test[0].name : "Not created"
 }
 
 output "test_vm_public_ip" {
   description = "Public IP address of the test VM"
-  value       = var.create_test_vms ? azurerm_public_ip.test_vm[0].ip_address : null
+  value       = var.create_test_vms ? azurerm_public_ip.test_vm[0].ip_address : "Not created"
 }
 
 output "test_vm_private_ip" {
   description = "Private IP address of the test VM"
-  value       = var.create_test_vms ? azurerm_network_interface.test_vm[0].private_ip_address : null
+  value       = var.create_test_vms ? azurerm_network_interface.test_vm[0].private_ip_address : "Not created"
+}
+
+output "test_vm_connection_guide" {
+  description = "How to connect to the test VM"
+  value = var.create_test_vms ? {
+    rdp_connection = "Use Remote Desktop to connect to ${azurerm_public_ip.test_vm[0].ip_address}:3389"
+    username       = var.vm_admin_username
+    password_reset = "Use Azure Portal → Virtual machines → ${azurerm_windows_virtual_machine.test[0].name} → Reset password"
+    computer_name  = azurerm_windows_virtual_machine.test[0].computer_name
+    monitoring_status = "Both MMA and AMA agents installed automatically"
+    data_collection = "Windows Security Events configured via Data Collection Rule"
+  } : {
+    status = "VM not created - set create_test_vms = true to enable"
+  }
 }
 
 # Key Vault
@@ -119,9 +133,10 @@ output "estimated_monthly_cost_usd" {
     log_analytics_data_ingestion = "~$2-10 per GB ingested"
     log_analytics_retention      = "~$0.10 per GB per month for retention > 31 days"
     sentinel                     = "~$2-4 per GB ingested"
-    test_vm                      = var.create_test_vms ? "~$30-50 per month for Standard_B2s" : "Not created"
+    test_vm                      = var.create_test_vms ? "~$15-30 per month for Standard_B1s (with auto-shutdown)" : "Not created"
     storage_account              = "~$1-5 per month"
     key_vault                    = var.enable_key_vault ? "~$1-3 per month" : "Not created"
     total_estimated              = "$35-75 per month (depending on data volume)"
+    cost_controls               = "✅ Auto-shutdown at 22:00 UTC, ✅ 10GB daily quota, ✅ Standard LRS storage"
   }
 }

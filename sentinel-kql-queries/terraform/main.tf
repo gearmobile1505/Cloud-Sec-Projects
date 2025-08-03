@@ -13,10 +13,6 @@ terraform {
       source  = "hashicorp/azuread"
       version = "~> 2.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
   }
 }
 
@@ -38,13 +34,6 @@ provider "azuread" {}
 data "azurerm_client_config" "current" {}
 data "azuread_client_config" "current" {}
 
-# Random suffix for unique naming
-resource "random_string" "suffix" {
-  length  = 8
-  special = false
-  upper   = false
-}
-
 # Local values
 locals {
   common_tags = {
@@ -54,5 +43,6 @@ locals {
     Purpose     = "KQL-Query-Testing"
   }
 
+  # Fixed resource prefix for persistent infrastructure
   resource_prefix = "${var.project_name}-${var.environment}"
 }

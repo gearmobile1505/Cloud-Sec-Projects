@@ -5,7 +5,7 @@ terraform {
   backend "azurerm" {
     # Configuration will be provided dynamically by GitHub Actions workflow:
     # - resource_group_name: "terraform-state-rg" 
-    # - storage_account_name: "sentinelkqlstate{run_number}"
+    # - storage_account_name: "sentinelkqlstate22" (persistent storage account)
     # - container_name: "tfstate"
     # - key: "sentinel-kql-testing.terraform.tfstate"
     # 
