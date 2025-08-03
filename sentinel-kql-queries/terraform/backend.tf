@@ -12,7 +12,7 @@ terraform {
     # The workflow will update this file with the actual storage account name
     # and authenticate using ARM environment variables
     resource_group_name  = "terraform-state-rg"
-    storage_account_name = "sentinelkqlstate"
+    storage_account_name = "sentinelkqlstate22"
     container_name       = "tfstate"
     key                  = "sentinel-kql-testing.terraform.tfstate"
   }
