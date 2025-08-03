@@ -60,10 +60,11 @@ resource "azurerm_network_interface" "test_vm" {
 
 # Network Watcher (use existing one - only 1 allowed per subscription per region)
 # Azure automatically creates a default Network Watcher named "NetworkWatcher_<region>"
-data "azurerm_network_watcher" "main" {
-  name                = "NetworkWatcher_${replace(lower(var.location), " ", "")}"
-  resource_group_name = "NetworkWatcherRG"
-}
+# Commented out since flow logs are disabled and Network Watcher isn't currently used
+# data "azurerm_network_watcher" "main" {
+#   name                = "NetworkWatcher_${replace(lower(var.location), " ", "")}"
+#   resource_group_name = "NetworkWatcherRG"
+# }
 
 # Alternative: Create Network Watcher only if none exists (commented due to limit)
 # resource "azurerm_network_watcher" "main" {
