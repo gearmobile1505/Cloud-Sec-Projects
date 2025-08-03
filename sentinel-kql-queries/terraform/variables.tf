@@ -39,9 +39,15 @@ variable "enable_sentinel" {
 }
 
 variable "enable_data_connectors" {
-  description = "Enable various data connectors for testing"
+  description = "Enable various data connectors for testing (requires special Azure AD permissions)"
   type        = bool
-  default     = true
+  default     = false  # Disabled by default due to permission requirements
+}
+
+variable "enable_alert_rules" {
+  description = "Enable Sentinel analytics rules (may fail if tables don't exist yet)"
+  type        = bool
+  default     = false  # Disabled by default for initial deployment
 }
 
 # Test Environment Configuration

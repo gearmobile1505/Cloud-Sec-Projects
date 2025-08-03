@@ -30,7 +30,7 @@ resource "azurerm_sentinel_data_connector_office_365" "main" {
 
 # Sample Analytics Rule - Suspicious Sign-in Activity
 resource "azurerm_sentinel_alert_rule_scheduled" "suspicious_signin" {
-  count                      = var.enable_sentinel ? 1 : 0
+  count                      = var.enable_sentinel && var.enable_alert_rules ? 1 : 0
   name                       = "Suspicious Sign-in Activity"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   display_name               = "Suspicious Sign-in Activity Detection"
@@ -92,7 +92,7 @@ QUERY
 
 # Sample Analytics Rule - Key Vault Access Anomalies
 resource "azurerm_sentinel_alert_rule_scheduled" "keyvault_anomalies" {
-  count                      = var.enable_sentinel && var.enable_key_vault ? 1 : 0
+  count                      = var.enable_sentinel && var.enable_key_vault && var.enable_alert_rules ? 1 : 0
   name                       = "Key Vault Access Anomalies"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   depends_on                 = [azurerm_sentinel_log_analytics_workspace_onboarding.main]
@@ -106,13 +106,14 @@ resource "azurerm_sentinel_alert_rule_scheduled" "keyvault_anomalies" {
   trigger_threshold = 1
 
   query = <<QUERY
-KeyVaultDiagnostics
-| where TimeGenerated > ago(7d)
-| where OperationName == "SecretGet" or OperationName == "KeyGet"
-| summarize AccessCount = count() by CallerIPAddress, bin(TimeGenerated, 1h)
-| summarize avg(AccessCount), max(AccessCount), count() by CallerIPAddress
-| where max_AccessCount > (avg_AccessCount * 3) and count_ > 24  // Anomalous access pattern
-| project CallerIPAddress, AverageAccess = avg_AccessCount, MaxAccess = max_AccessCount, Hours = count_
+AzureActivity
+| where TimeGenerated > ago(4h)
+| where ResourceProvider == "Microsoft.KeyVault"
+| where ActivityStatus == "Success"
+| summarize AccessCount = count() by CallerIpAddress, bin(TimeGenerated, 1h)
+| where AccessCount > 10
+| project TimeGenerated, CallerIpAddress, AccessCount
+| order by TimeGenerated desc
 QUERY
 
   description = "Detects unusual access patterns to Key Vault secrets and keys"

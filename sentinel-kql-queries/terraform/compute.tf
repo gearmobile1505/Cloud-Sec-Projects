@@ -66,12 +66,13 @@ resource "azurerm_dev_test_global_vm_shutdown_schedule" "test" {
   tags = local.common_tags
 }
 
-# Security Center Workspace (Auto provisioning is deprecated)
-resource "azurerm_security_center_workspace" "main" {
-  count        = var.enable_defender ? 1 : 0
-  scope        = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
-  workspace_id = azurerm_log_analytics_workspace.main.id
-}
+# Security Center Workspace (Note: May already exist in subscription)
+# Commented out to avoid conflicts with existing workspace settings
+# resource "azurerm_security_center_workspace" "main" {
+#   count        = var.enable_defender ? 1 : 0
+#   scope        = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+#   workspace_id = azurerm_log_analytics_workspace.main.id
+# }
 
 # Key Vault for secrets testing
 resource "azurerm_key_vault" "main" {

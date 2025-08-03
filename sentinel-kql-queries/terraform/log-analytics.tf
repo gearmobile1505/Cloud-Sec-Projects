@@ -40,12 +40,14 @@ resource "azurerm_storage_account" "logs" {
   tags = local.common_tags
 }
 
-# Enable Advanced Threat Protection for Storage
-resource "azurerm_advanced_threat_protection" "storage" {
-  count              = var.enable_storage_threats ? 1 : 0
-  target_resource_id = azurerm_storage_account.logs.id
-  enabled            = true
-}
+# Advanced Threat Protection for Storage (Classic plan deprecated)
+# The classic Defender for Storage plan is no longer available
+# Use the new Defender for Storage plan via Azure Security Center instead
+# resource "azurerm_advanced_threat_protection" "storage" {
+#   count              = var.enable_storage_threats ? 1 : 0
+#   target_resource_id = azurerm_storage_account.logs.id
+#   enabled            = true
+# }
 
 # Network Security Group with intentional misconfigurations for testing
 resource "azurerm_network_security_group" "test" {
