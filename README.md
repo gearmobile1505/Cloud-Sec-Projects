@@ -2,26 +2,6 @@
 
 A comprehensive collection of security tools, automation frameworks, and threat detection queries for AWS and Azure cloud environments. This repository provides production-ready security solutions with automated testing and deployment capabilities.
 
-## 🎯 **Featured Project: Microsoft Sentinel KQL Query Library** ⭐
-
-**✅ Complete & Production-Ready** - Comprehensive KQL query library with automated testing environment
-- **200+ Security Queries** with MITRE ATT&CK mappings
-- **Terraform Infrastructure** for complete Sentinel testing environment  
-- **Cost-Optimized Deployment** with auto-shutdown and quota controls
-- **Automated Agent Setup** - MMA and AMA monitoring agents pre-configured
-- **First-Time User Guide** - Step-by-step deployment and testing documentation
-
-📈 **Recent Achievements:**
-- ✅ Complete infrastructure automation with Terraform
-- ✅ Comprehensive first-time user documentation 
-- ✅ Full KQL syntax validation across all queries
-- ✅ Cost optimization ($70-150/month → $0 when not in use)
-- ✅ Production-ready deployment pipeline
-
-➡️ **[Explore Sentinel KQL Queries →](./sentinel-kql-queries)**
-
----
-
 ## 🗂️ Project Portfolio
 
 ### 🔐 **Microsoft Azure Security**
@@ -114,24 +94,7 @@ python aws_resource_manager.py --scan
 - **[KQL Query Library](./sentinel-kql-queries/queries/)** - Production security queries
 - **[AWS Setup Guides](./aws-resource-manager/docs/)** - AWS tool configuration
 
-## 🤝 Contributing
 
-We welcome contributions! Please see individual project directories for specific contribution guidelines.
-
-### **Development Standards**
-- Follow security best practices and least privilege principles
-- Include comprehensive testing and documentation
-- Optimize for cost-effectiveness and performance
-- Provide clear setup and usage instructions
-
-## ⚠️ Security Notice
-
-These tools are designed for legitimate security operations and educational purposes. Always:
-- Obtain proper authorization before deployment
-- Follow your organization's security policies
-- Test in non-production environments first
-- Monitor costs and resource usage
-- Review and audit all configurations
 
 ## 📊 Project Status Dashboard
 
