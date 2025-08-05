@@ -17,13 +17,13 @@ echo 'create_test_vms = true' > terraform.tfvars
 terraform apply
 ```
 
-[📖 **Full Deployment Guide**](DEPLOYMENT-GUIDE.md) | [📋 **Testing Instructions**](generate-test-events.md) | [🔄 **Changelog**](CHANGELOG.md)
+[📖 **Full Deployment Guide**](DEPLOYMENT-GUIDE.md) | [📋 **Testing Instructions**](generate-test-events.md) | [🔄 
 
 ---
 
 ## 📋 Overview
 
-This repository contains production-ready KQL queries designed for security operations teams using Microsoft Sentinel. Each query includes detailed metadata, MITRE ATT&CK mappings, and deployment guidance.
+This repository contains KQL queries designed for security operations teams using Microsoft Sentinel. Each query includes detailed metadata, MITRE ATT&CK mappings, and deployment guidance.
 
 **🆕 What's New in v2.0:**
 - ✅ **Automated VM Agent Setup** - MMA and AMA agents installed automatically
@@ -50,7 +50,6 @@ sentinel-kql-queries/
 ├── docs/                     # 📚 Documentation
 ├── DEPLOYMENT-GUIDE.md       # 🚀 Complete setup instructions
 ├── generate-test-events.md   # 🧪 Testing guide
-└── CHANGELOG.md              # 📝 Version history
 ```
 
 ## 🚀 Quick Start
