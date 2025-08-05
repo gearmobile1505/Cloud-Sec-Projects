@@ -81,6 +81,19 @@ resource "azurerm_network_security_group" "test" {
     destination_address_prefix = "*"
   }
 
+  # Windows Admin Center rule
+  security_rule {
+    name                       = "AllowWindowsAdminCenter"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "6516"
+    source_address_prefix      = "*" # Allow from anywhere for testing
+    destination_address_prefix = "*"
+  }
+
   tags = local.common_tags
 }
 

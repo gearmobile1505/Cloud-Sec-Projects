@@ -41,6 +41,18 @@ resource "azurerm_public_ip" "test_vm" {
   tags = local.common_tags
 }
 
+# Public IP for second test VM
+resource "azurerm_public_ip" "test_vm2" {
+  count               = var.create_test_vms ? 1 : 0
+  name                = "${local.resource_prefix}-vm2-pip"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+
+  tags = local.common_tags
+}
+
 # Network Interface for test VM
 resource "azurerm_network_interface" "test_vm" {
   count               = var.create_test_vms ? 1 : 0
@@ -56,6 +68,37 @@ resource "azurerm_network_interface" "test_vm" {
   }
 
   tags = local.common_tags
+}
+
+# Network Interface for second test VM
+resource "azurerm_network_interface" "test_vm2" {
+  count               = var.create_test_vms ? 1 : 0
+  name                = "${local.resource_prefix}-vm2-nic"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.default.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.test_vm2[0].id
+  }
+
+  tags = local.common_tags
+}
+
+# Associate NSG with network interface (required for Azure portal outbound rule configuration)
+resource "azurerm_network_interface_security_group_association" "test_vm" {
+  count                     = var.create_test_vms ? 1 : 0
+  network_interface_id      = azurerm_network_interface.test_vm[0].id
+  network_security_group_id = azurerm_network_security_group.test.id
+}
+
+# Associate NSG with second VM network interface
+resource "azurerm_network_interface_security_group_association" "test_vm2" {
+  count                     = var.create_test_vms ? 1 : 0
+  network_interface_id      = azurerm_network_interface.test_vm2[0].id
+  network_security_group_id = azurerm_network_security_group.test.id
 }
 
 # Network Watcher (use existing one - only 1 allowed per subscription per region)

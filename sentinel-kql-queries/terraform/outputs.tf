@@ -77,11 +77,44 @@ output "test_vm_connection_guide" {
   description = "How to connect to the test VM"
   value = var.create_test_vms ? {
     rdp_connection = "Use Remote Desktop to connect to ${azurerm_public_ip.test_vm[0].ip_address}:3389"
+    windows_admin_center = "Access Windows Admin Center at https://${azurerm_public_ip.test_vm[0].ip_address}:6516"
     username       = var.vm_admin_username
     password_reset = "Use Azure Portal → Virtual machines → ${azurerm_windows_virtual_machine.test[0].name} → Reset password"
     computer_name  = azurerm_windows_virtual_machine.test[0].computer_name
     monitoring_status = "Both MMA and AMA agents installed automatically"
     data_collection = "Windows Security Events configured via Data Collection Rule"
+    admin_center_setup = "Windows Admin Center extension installed automatically - may take 5-10 minutes to be ready"
+  } : {
+    status = "VM not created - set create_test_vms = true to enable"
+  }
+}
+
+# Second VM outputs
+output "test_vm2_name" {
+  description = "Name of the second test VM"
+  value       = var.create_test_vms ? azurerm_windows_virtual_machine.test2[0].name : "Not created"
+}
+
+output "test_vm2_public_ip" {
+  description = "Public IP address of the second test VM"
+  value       = var.create_test_vms ? azurerm_public_ip.test_vm2[0].ip_address : "Not created"
+}
+
+output "test_vm2_private_ip" {
+  description = "Private IP address of the second test VM"
+  value       = var.create_test_vms ? azurerm_network_interface.test_vm2[0].private_ip_address : "Not created"
+}
+
+output "test_vm2_connection_guide" {
+  description = "How to connect to the second test VM"
+  value = var.create_test_vms ? {
+    rdp_connection = "Use Remote Desktop to connect to ${azurerm_public_ip.test_vm2[0].ip_address}:3389"
+    username       = var.vm_admin_username
+    password_reset = "Use Azure Portal → Virtual machines → ${azurerm_windows_virtual_machine.test2[0].name} → Reset password"
+    computer_name  = azurerm_windows_virtual_machine.test2[0].computer_name
+    monitoring_status = "Both MMA and AMA agents installed automatically"
+    data_collection = "Windows Security Events configured via Data Collection Rule"
+    vm_size = "Standard_B2s (2 vCPU, 4 GB RAM)"
   } : {
     status = "VM not created - set create_test_vms = true to enable"
   }
@@ -134,9 +167,10 @@ output "estimated_monthly_cost_usd" {
     log_analytics_retention      = "~$0.10 per GB per month for retention > 31 days"
     sentinel                     = "~$2-4 per GB ingested"
     test_vm                      = var.create_test_vms ? "~$15-30 per month for Standard_B1s (with auto-shutdown)" : "Not created"
+    test_vm2                     = var.create_test_vms ? "~$35-70 per month for Standard_B2s (2 vCPU, with auto-shutdown)" : "Not created"
     storage_account              = "~$1-5 per month"
     key_vault                    = var.enable_key_vault ? "~$1-3 per month" : "Not created"
-    total_estimated              = "$35-75 per month (depending on data volume)"
+    total_estimated              = var.create_test_vms ? "$70-150 per month (with both VMs, depending on data volume)" : "$35-75 per month (depending on data volume)"
     cost_controls               = "✅ Auto-shutdown at 22:00 UTC, ✅ 10GB daily quota, ✅ Standard LRS storage"
   }
 }
