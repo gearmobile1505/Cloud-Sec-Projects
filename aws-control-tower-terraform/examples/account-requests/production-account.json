@@ -1,0 +1,20 @@
+{
+  "account_name": "MyApp-Production",
+  "account_email": "myapp-production@yourcompany.com",
+  "organizational_unit": "Workloads/Production",
+  "account_customizations_name": "production-baseline",
+  "custom_fields": {
+    "Environment": "Production",
+    "Owner": "Platform Team", 
+    "CostCenter": "ENG-001",
+    "Project": "MyApp",
+    "Compliance": "SOC2",
+    "Backup": "Required",
+    "MultiAZ": "Required", 
+    "Encryption": "Required",
+    "MonthlyBudget": "5000",
+    "AlertThresholds": "50,80,95",
+    "AutoShutdown": "false",
+    "RequireMFA": "true"
+  }
+}

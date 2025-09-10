@@ -1,0 +1,18 @@
+{
+  "account_name": "MyApp-Development",
+  "account_email": "myapp-development@yourcompany.com", 
+  "organizational_unit": "Workloads/Non-Production",
+  "account_customizations_name": "development-baseline",
+  "custom_fields": {
+    "Environment": "Development",
+    "Owner": "Development Team",
+    "CostCenter": "ENG-002", 
+    "Project": "MyApp",
+    "MonthlyBudget": "1000",
+    "AlertThresholds": "70,90",
+    "AutoShutdown": "true",
+    "RequireMFA": "false",
+    "AllowedHours": "8-18",
+    "AllowedDays": "Mon-Fri"
+  }
+}

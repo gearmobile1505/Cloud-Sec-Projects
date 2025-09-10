@@ -1,0 +1,19 @@
+{
+  "account_name": "Innovation-Sandbox",
+  "account_email": "innovation-sandbox@yourcompany.com",
+  "organizational_unit": "Workloads/Sandbox", 
+  "account_customizations_name": "sandbox-baseline",
+  "custom_fields": {
+    "Environment": "Sandbox",
+    "Owner": "Innovation Team",
+    "CostCenter": "RND-001",
+    "Project": "Innovation Lab", 
+    "MonthlyBudget": "200",
+    "AlertThresholds": "60,85",
+    "AutoShutdown": "true",
+    "RequireMFA": "false",
+    "AllowedServices": "ec2,s3,lambda,dynamodb,apigateway",
+    "MaxInstanceTypes": "t3.micro,t3.small,t3.medium",
+    "AutoDeleteAfter": "30days"
+  }
+}

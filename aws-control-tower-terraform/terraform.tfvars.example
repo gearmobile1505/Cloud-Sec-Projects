@@ -1,0 +1,47 @@
+# Terraform variable definitions for all phases
+
+# Organization Variables
+organization_name = "YourCompanyName"  # Change this to your organization name
+
+# Email addresses for core accounts (MUST be unique, valid email addresses)
+log_archive_account_email = "aws-log-archive@yourcompany.com"     # Change this
+audit_account_email       = "aws-audit@yourcompany.com"          # Change this  
+aft_account_email         = "aws-aft@yourcompany.com"            # Change this
+
+# Region Configuration
+home_region = "us-east-1"  # Primary Control Tower region
+additional_regions = [     # Additional regions to govern
+  "us-west-2",
+  "eu-west-1"
+]
+
+# Allowed regions for workload deployment (used in SCPs)
+allowed_regions = [
+  "us-east-1",
+  "us-west-2",
+  "eu-west-1"
+]
+
+# AFT Configuration
+aft_management_region = "us-east-1"  # Region for AFT management resources
+
+# GitHub repository for AFT (optional - leave empty to use CodeCommit)
+github_repository_url = ""  # e.g., "https://github.com/yourorg/aft-account-requests"
+
+# AFT Feature Configuration
+aft_feature_set = {
+  terraform_version              = "1.5.7"
+  terraform_distribution         = "oss"  # or "tfe" for Terraform Enterprise
+  account_customizations_enabled = true
+  global_customizations_enabled  = true
+  account_provisioning_enabled   = true
+}
+
+# Organizational Unit Names (optional customization)
+core_ou_name      = "Core"
+workloads_ou_name = "Workloads"
+
+# Account Names (optional customization)
+log_archive_account_name = "Log Archive"
+audit_account_name       = "Audit"
+aft_account_name         = "AFT Management"
